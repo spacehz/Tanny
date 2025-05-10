@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+  h1 {
+    @apply text-3xl font-bold;
+  }
+  h2 {
+    @apply text-2xl font-bold;
+  }
+  h3 {
+    @apply text-xl font-bold;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700;
+  }
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+  }
+  .container-page {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+  }
+  
+  /* Styles pour la sidebar admin */
+  .admin-sidebar {
+    width: 250px;
+    transition: width 0.3s ease;
+  }
+  
+  .admin-sidebar.collapsed {
+    width: 70px;
+  }
+  
+  .admin-content {
+    margin-left: 250px;
+    transition: margin-left 0.3s ease;
+  }
+  
+  .admin-sidebar.collapsed + .admin-content,
+  .admin-sidebar.collapsed ~ .admin-content {
+    margin-left: 70px;
+  }
+  
+  /* Styles pour FullCalendar */
+  .calendar-container {
+    margin-top: 1rem;
+  }
+  
+  .fc {
+    /* Styles généraux pour le calendrier */
+    @apply font-sans;
+  }
+  
+  .fc-toolbar-title {
+    /* Titre du calendrier */
+    @apply text-xl font-bold text-gray-800;
+  }
+  
+  .fc-button-primary {
+    /* Boutons du calendrier */
+    @apply bg-primary-600 border-primary-600 hover:bg-primary-700 hover:border-primary-700 focus:bg-primary-700 focus:border-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50;
+  }
+  
+  .fc-event {
+    /* Événements du calendrier */
+    @apply cursor-pointer rounded-md border-0 shadow-sm;
+  }
+  
+  .fc-day-today {
+    /* Jour actuel */
+    @apply bg-primary-50 !important;
+  }
+  
+  .fc-daygrid-day-number,
+  .fc-col-header-cell-cushion {
+    /* Numéros de jours et en-têtes de colonnes */
+    @apply text-gray-700;
+  }
+  
+  /* Responsive pour mobile */
+  @media (max-width: 768px) {
+    .fc-toolbar {
+      @apply flex-col gap-2;
+    }
+    
+    .fc-toolbar-chunk {
+      @apply flex justify-center;
+    }
+  }
+}
