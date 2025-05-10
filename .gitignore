@@ -4,3 +4,4 @@
 
 # Ignore build output (Next.js)
 **/.next/
+/frontend/.next/
