@@ -1,6 +1,7 @@
-const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { validationResult } = require('express-validator');
+const User = require('../models/User');
 
 // Générer un token JWT
 const generateToken = (id) => {
@@ -9,20 +10,21 @@ const generateToken = (id) => {
   });
 };
 
-// @desc    Inscription d'un nouvel utilisateur
+// @desc    Inscrire un nouvel utilisateur
 // @route   POST /api/users/register
 // @access  Public
 exports.registerUser = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { name, email, password } = req.body;
+
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { name, email, password } = req.body;
-
     // Vérifier si l'utilisateur existe déjà
     const userExists = await User.findOne({ email });
+
     if (userExists) {
       return res.status(400).json({ message: 'Cet utilisateur existe déjà' });
     }
@@ -43,7 +45,7 @@ exports.registerUser = async (req, res) => {
         token: generateToken(user._id),
       });
     } else {
-      res.status(400).json({ message: "Données d'utilisateur invalides" });
+      res.status(400).json({ message: 'Données utilisateur invalides' });
     }
   } catch (error) {
     console.error(error);
@@ -51,35 +53,40 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-// @desc    Authentification d'un utilisateur
+// @desc    Authentifier un utilisateur et obtenir un token
 // @route   POST /api/users/login
 // @access  Public
 exports.loginUser = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { email, password } = req.body;
+
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, password } = req.body;
-
-    // Vérifier si l'utilisateur existe
+    // Trouver l'utilisateur par email
     const user = await User.findOne({ email }).select('+password');
+
     if (!user) {
-      return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+      return res.status(401).json({ message: 'Email ou mot de passe invalide' });
     }
 
     // Vérifier si le mot de passe correspond
     const isMatch = await user.comparePassword(password);
+
     if (!isMatch) {
-      return res.status(401).json({ message: 'Email ou mot de passe incorrect' });
+      return res.status(401).json({ message: 'Email ou mot de passe invalide' });
     }
 
+    // Générer un token JWT
     res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
       token: generateToken(user._id),
     });
   } catch (error) {
@@ -88,12 +95,13 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-// @desc    Obtenir le profil de l'utilisateur
+// @desc    Obtenir le profil de l'utilisateur connecté
 // @route   GET /api/users/profile
 // @access  Private
 exports.getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
+
     if (user) {
       res.json({
         _id: user._id,
@@ -120,7 +128,7 @@ exports.updateUserProfile = async (req, res) => {
     if (user) {
       user.name = req.body.name || user.name;
       user.email = req.body.email || user.email;
-
+      
       if (req.body.password) {
         user.password = req.body.password;
       }
@@ -143,7 +151,7 @@ exports.updateUserProfile = async (req, res) => {
   }
 };
 
-// @desc    Obtenir tous les bénévoles (utilisateurs avec role 'user')
+// @desc    Obtenir tous les bénévoles avec recherche et filtrage
 // @route   GET /api/users/volunteers
 // @access  Private/Admin
 exports.getVolunteers = async (req, res) => {
@@ -151,19 +159,44 @@ exports.getVolunteers = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-
-    const count = await User.countDocuments({ role: 'user' });
-    const volunteers = await User.find({ role: 'user' })
+    const search = req.query.search || '';
+    const availability = req.query.availability || '';
+    const isActive = req.query.isActive !== undefined ? 
+      req.query.isActive === 'true' : null;
+    
+    // Construire le filtre de recherche
+    const filter = { role: 'bénévole' };
+    
+    // Ajouter la recherche si présente
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Ajouter le filtre de disponibilité si présent
+    if (availability) {
+      filter.availability = availability;
+    }
+    
+    // Ajouter le filtre de statut si présent
+    if (isActive !== null) {
+      filter.isActive = isActive;
+    }
+    
+    const volunteers = await User.find(filter)
       .select('-password')
-      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
-
+    
+    const total = await User.countDocuments(filter);
+    
     res.json({
       volunteers,
       page,
-      pages: Math.ceil(count / limit),
-      total: count
+      pages: Math.ceil(total / limit),
+      total
     });
   } catch (error) {
     console.error(error);
@@ -177,8 +210,8 @@ exports.getVolunteers = async (req, res) => {
 exports.getVolunteerById = async (req, res) => {
   try {
     const volunteer = await User.findById(req.params.id).select('-password');
-    
-    if (volunteer) {
+
+    if (volunteer && volunteer.role === 'bénévole') {
       res.json(volunteer);
     } else {
       res.status(404).json({ message: 'Bénévole non trouvé' });
@@ -193,27 +226,28 @@ exports.getVolunteerById = async (req, res) => {
 // @route   POST /api/users/volunteers
 // @access  Private/Admin
 exports.createVolunteer = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { name, email, password, availability } = req.body;
+
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { name, email, password, availability } = req.body;
-
     // Vérifier si l'utilisateur existe déjà
     const userExists = await User.findOne({ email });
+
     if (userExists) {
       return res.status(400).json({ message: 'Cet utilisateur existe déjà' });
     }
 
-    // Créer un nouveau bénévole (role = 'user')
+    // Créer un nouveau bénévole
     const volunteer = await User.create({
       name,
       email,
       password,
-      role: 'user',
-      availability: availability || 'Flexible'
+      role: 'bénévole',
+      availability: availability || 'Flexible',
     });
 
     if (volunteer) {
@@ -222,10 +256,10 @@ exports.createVolunteer = async (req, res) => {
         name: volunteer.name,
         email: volunteer.email,
         role: volunteer.role,
-        availability: volunteer.availability
+        availability: volunteer.availability,
       });
     } else {
-      res.status(400).json({ message: "Données d'utilisateur invalides" });
+      res.status(400).json({ message: 'Données bénévole invalides' });
     }
   } catch (error) {
     console.error(error);
@@ -240,12 +274,11 @@ exports.updateVolunteer = async (req, res) => {
   try {
     const volunteer = await User.findById(req.params.id);
 
-    if (volunteer) {
+    if (volunteer && volunteer.role === 'bénévole') {
       volunteer.name = req.body.name || volunteer.name;
       volunteer.email = req.body.email || volunteer.email;
-      volunteer.isActive = req.body.isActive !== undefined ? req.body.isActive : volunteer.isActive;
       volunteer.availability = req.body.availability || volunteer.availability;
-
+      
       if (req.body.password) {
         volunteer.password = req.body.password;
       }
@@ -257,8 +290,7 @@ exports.updateVolunteer = async (req, res) => {
         name: updatedVolunteer.name,
         email: updatedVolunteer.email,
         role: updatedVolunteer.role,
-        isActive: updatedVolunteer.isActive,
-        availability: updatedVolunteer.availability
+        availability: updatedVolunteer.availability,
       });
     } else {
       res.status(404).json({ message: 'Bénévole non trouvé' });
@@ -276,11 +308,169 @@ exports.deleteVolunteer = async (req, res) => {
   try {
     const volunteer = await User.findById(req.params.id);
 
-    if (volunteer) {
+    if (volunteer && volunteer.role === 'bénévole') {
       await volunteer.deleteOne();
       res.json({ message: 'Bénévole supprimé' });
     } else {
       res.status(404).json({ message: 'Bénévole non trouvé' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// @desc    Obtenir tous les commerçants avec pagination
+// @route   GET /api/users/merchants
+// @access  Private/Admin
+exports.getMerchants = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalMerchants = await User.countDocuments({ role: 'commercant' });
+    const merchants = await User.find({ role: 'commercant' })
+      .select('-password')
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      merchants,
+      page,
+      pages: Math.ceil(totalMerchants / limit),
+      total: totalMerchants
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// @desc    Obtenir un commerçant par ID
+// @route   GET /api/users/merchants/:id
+// @access  Private/Admin
+exports.getMerchantById = async (req, res) => {
+  try {
+    const merchant = await User.findById(req.params.id).select('-password');
+
+    if (merchant && merchant.role === 'commercant') {
+      res.json(merchant);
+    } else {
+      res.status(404).json({ message: 'Commerçant non trouvé' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// @desc    Créer un nouveau commerçant
+// @route   POST /api/users/merchants
+// @access  Private/Admin
+exports.createMerchant = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { name, email, password, businessName, address, phoneNumber, isActive } = req.body;
+
+  try {
+    // Vérifier si l'utilisateur existe déjà
+    const userExists = await User.findOne({ email });
+
+    if (userExists) {
+      return res.status(400).json({ message: 'Cet utilisateur existe déjà' });
+    }
+
+    // Créer un nouveau commerçant
+    const merchant = await User.create({
+      name,
+      email,
+      password,
+      role: 'commercant',
+      businessName: businessName || '',
+      address: address || '',
+      phoneNumber: phoneNumber || '',
+      isActive: isActive !== undefined ? isActive : true
+    });
+
+    if (merchant) {
+      res.status(201).json({
+        _id: merchant._id,
+        name: merchant.name,
+        email: merchant.email,
+        role: merchant.role,
+        businessName: merchant.businessName,
+        address: merchant.address,
+        phoneNumber: merchant.phoneNumber,
+        isActive: merchant.isActive
+      });
+    } else {
+      res.status(400).json({ message: 'Données commerçant invalides' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// @desc    Mettre à jour un commerçant
+// @route   PUT /api/users/merchants/:id
+// @access  Private/Admin
+exports.updateMerchant = async (req, res) => {
+  try {
+    const merchant = await User.findById(req.params.id);
+
+    if (merchant && merchant.role === 'commercant') {
+      merchant.name = req.body.name || merchant.name;
+      merchant.email = req.body.email || merchant.email;
+      merchant.businessName = req.body.businessName || merchant.businessName;
+      merchant.address = req.body.address || merchant.address;
+      merchant.phoneNumber = req.body.phoneNumber || merchant.phoneNumber;
+      
+      if (req.body.isActive !== undefined) {
+        merchant.isActive = req.body.isActive;
+      }
+      
+      if (req.body.password) {
+        merchant.password = req.body.password;
+      }
+
+      const updatedMerchant = await merchant.save();
+
+      res.json({
+        _id: updatedMerchant._id,
+        name: updatedMerchant.name,
+        email: updatedMerchant.email,
+        role: updatedMerchant.role,
+        businessName: updatedMerchant.businessName,
+        address: updatedMerchant.address,
+        phoneNumber: updatedMerchant.phoneNumber,
+        isActive: updatedMerchant.isActive
+      });
+    } else {
+      res.status(404).json({ message: 'Commerçant non trouvé' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// @desc    Supprimer un commerçant
+// @route   DELETE /api/users/merchants/:id
+// @access  Private/Admin
+exports.deleteMerchant = async (req, res) => {
+  try {
+    const merchant = await User.findById(req.params.id);
+
+    if (merchant && merchant.role === 'commercant') {
+      await merchant.deleteOne();
+      res.json({ message: 'Commerçant supprimé' });
+    } else {
+      res.status(404).json({ message: 'Commerçant non trouvé' });
     }
   } catch (error) {
     console.error(error);

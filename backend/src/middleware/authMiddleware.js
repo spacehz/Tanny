@@ -32,11 +32,29 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-// Middleware pour vérifier si l'utilisateur est admin
+// Middleware pour les routes d'administration
 exports.admin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
     next();
   } else {
-    res.status(403).json({ message: 'Non autorisé, accès admin requis' });
+    res.status(403).json({ message: 'Non autorisé, accès administrateur requis' });
+  }
+};
+
+// Middleware pour les routes de marchands
+exports.merchant = (req, res, next) => {
+  if (req.user && (req.user.role === 'merchant' || req.user.role === 'admin')) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Non autorisé, accès marchand requis' });
+  }
+};
+
+// Middleware pour les routes de bénévoles
+exports.volunteer = (req, res, next) => {
+  if (req.user && (req.user.role === 'bénévole' || req.user.role === 'admin')) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Non autorisé, accès bénévole requis' });
   }
 };

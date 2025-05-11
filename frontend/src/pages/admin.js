@@ -1,10 +1,23 @@
 import Head from 'next/head';
 import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Sidebar from '../components/Sidebar';
+import ProtectedRoute from '../components/ProtectedRoute';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminDashboard() {
+  const { user, isAdmin } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Rediriger si l'utilisateur n'est pas admin
+    if (user && !isAdmin) {
+      router.push('/');
+    }
+  }, [user, isAdmin, router]);
+
   return (
-    <>
+    <ProtectedRoute requiredRole="admin">
       <Head>
         <title>Dashboard Admin | TANNY</title>
         <meta name="description" content="Tableau de bord administrateur de l'application TANNY" />
@@ -37,6 +50,42 @@ export default function AdminDashboard() {
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">Collectes</h3>
                 <p className="text-3xl font-bold">42</p>
                 <p className="text-sm text-gray-500 mt-2">12 à venir</p>
+              </div>
+            </div>
+            
+            {/* Navigation rapide vers les sections admin */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Gestion des utilisateurs</h2>
+                <p className="text-gray-600 mb-4">Gérer les bénévoles et les commerçants</p>
+                <button 
+                  onClick={() => router.push('/admin-volunteers')}
+                  className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  Accéder
+                </button>
+              </div>
+              
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Collectes</h2>
+                <p className="text-gray-600 mb-4">Gérer les collectes programmées</p>
+                <button 
+                  onClick={() => router.push('/admin-collections')}
+                  className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  Accéder
+                </button>
+              </div>
+              
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-semibold mb-4">Configuration</h2>
+                <p className="text-gray-600 mb-4">Paramètres de l'application</p>
+                <button 
+                  onClick={() => router.push('/admin-settings')}
+                  className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors"
+                >
+                  Accéder
+                </button>
               </div>
             </div>
             
@@ -74,6 +123,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
-    </>
+    </ProtectedRoute>
   );
 }

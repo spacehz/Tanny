@@ -4,6 +4,14 @@ import Header from './Header';
 import Footer from './Footer';
 import Sidebar from '../Sidebar';
 
+// Helper function to safely access localStorage
+const getLocalStorage = () => {
+  if (typeof window !== 'undefined') {
+    return window.localStorage;
+  }
+  return null;
+};
+
 export default function AdminLayout({ children }) {
   const router = useRouter();
   
@@ -11,7 +19,8 @@ export default function AdminLayout({ children }) {
   useEffect(() => {
     // Ici, vous pourriez vérifier si l'utilisateur est connecté et a le rôle admin
     // Si ce n'est pas le cas, rediriger vers la page de connexion
-    const isAdmin = localStorage.getItem('userRole') === 'admin';
+    const storage = getLocalStorage();
+    const isAdmin = storage ? storage.getItem('userRole') === 'admin' : false;
     if (!isAdmin) {
       // Commenté pour le développement, à décommenter en production
       // router.push('/login');

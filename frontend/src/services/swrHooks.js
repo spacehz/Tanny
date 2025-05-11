@@ -33,14 +33,14 @@ export const useData = (url, options = {}) => {
  * @param {string|number} id - ID de l'utilisateur
  */
 export const useUser = (id) => {
-  return useData(id ? `/users/${id}` : null);
+  return useData(id ? `/api/users/${id}` : null);
 };
 
 /**
  * Hook pour récupérer tous les produits
  */
 export const useProducts = () => {
-  return useData('/products');
+  return useData('/api/products');
 };
 
 /**
@@ -48,16 +48,33 @@ export const useProducts = () => {
  * @param {string|number} id - ID du produit
  */
 export const useProduct = (id) => {
-  return useData(id ? `/products/${id}` : null);
+  return useData(id ? `/api/products/${id}` : null);
 };
 
 /**
- * Hook pour récupérer tous les bénévoles avec pagination
+ * Hook pour récupérer tous les bénévoles avec pagination, recherche et filtrage
  * @param {number} page - Numéro de la page
  * @param {number} limit - Nombre d'éléments par page
+ * @param {string} search - Terme de recherche (optionnel)
+ * @param {string} availability - Filtre de disponibilité (optionnel)
+ * @param {boolean} isActive - Filtre de statut (optionnel)
  */
-export const useVolunteers = (page = 1, limit = 10) => {
-  return useData(`/users/volunteers?page=${page}&limit=${limit}`);
+export const useVolunteers = (page = 1, limit = 10, search = '', availability = '', isActive = null) => {
+  let url = `/api/users/volunteers?page=${page}&limit=${limit}`;
+  
+  if (search) {
+    url += `&search=${encodeURIComponent(search)}`;
+  }
+  
+  if (availability) {
+    url += `&availability=${encodeURIComponent(availability)}`;
+  }
+  
+  if (isActive !== null) {
+    url += `&isActive=${isActive}`;
+  }
+  
+  return useData(url);
 };
 
 /**
@@ -65,5 +82,22 @@ export const useVolunteers = (page = 1, limit = 10) => {
  * @param {string|number} id - ID du bénévole
  */
 export const useVolunteer = (id) => {
-  return useData(id ? `/users/volunteers/${id}` : null);
+  return useData(id ? `/api/users/volunteers/${id}` : null);
+};
+
+/**
+ * Hook pour récupérer tous les commerçants avec pagination
+ * @param {number} page - Numéro de la page
+ * @param {number} limit - Nombre d'éléments par page
+ */
+export const useMerchants = (page = 1, limit = 10) => {
+  return useData(`/api/users/merchants?page=${page}&limit=${limit}`);
+};
+
+/**
+ * Hook pour récupérer un commerçant par son ID
+ * @param {string|number} id - ID du commerçant
+ */
+export const useMerchant = (id) => {
+  return useData(id ? `/api/users/merchants/${id}` : null);
 };
