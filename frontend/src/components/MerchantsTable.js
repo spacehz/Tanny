@@ -289,18 +289,49 @@ export default function MerchantsTable() {
             
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label htmlFor="name" className="block text-gray-700 font-medium mb-2">
-                  Nom
+                <label htmlFor="businessName" className="block text-gray-700 font-medium mb-2">
+                  Nom du commerce
                 </label>
                 <input
                   type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
+                  id="businessName"
+                  name="businessName"
+                  value={formData.businessName}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                   required
                 />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label htmlFor="legalRepresentative.firstName" className="block text-gray-700 font-medium mb-2">
+                    Prénom du représentant
+                  </label>
+                  <input
+                    type="text"
+                    id="legalRepresentative.firstName"
+                    name="legalRepresentative.firstName"
+                    value={formData.legalRepresentative.firstName}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="legalRepresentative.lastName" className="block text-gray-700 font-medium mb-2">
+                    Nom du représentant
+                  </label>
+                  <input
+                    type="text"
+                    id="legalRepresentative.lastName"
+                    name="legalRepresentative.lastName"
+                    value={formData.legalRepresentative.lastName}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
               </div>
               
               <div className="mb-4">
@@ -319,60 +350,89 @@ export default function MerchantsTable() {
               </div>
               
               <div className="mb-4">
-                <label htmlFor="password" className="block text-gray-700 font-medium mb-2">
-                  Nouveau mot de passe (laisser vide pour ne pas changer)
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  required={false}
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="businessName" className="block text-gray-700 font-medium mb-2">
-                  Nom du commerce
-                </label>
-                <input
-                  type="text"
-                  id="businessName"
-                  name="businessName"
-                  value={formData.businessName}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="address" className="block text-gray-700 font-medium mb-2">
-                  Adresse
-                </label>
-                <input
-                  type="text"
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-              
-              <div className="mb-6">
-                <label htmlFor="phone" className="block text-gray-700 font-medium mb-2">
+                <label htmlFor="phoneNumber" className="block text-gray-700 font-medium mb-2">
                   Téléphone
                 </label>
                 <input
                   type="text"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="siret" className="block text-gray-700 font-medium mb-2">
+                  SIRET
+                </label>
+                <input
+                  type="text"
+                  id="siret"
+                  name="siret"
+                  value={formData.siret}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="address.street" className="block text-gray-700 font-medium mb-2">
+                  Rue
+                </label>
+                <input
+                  type="text"
+                  id="address.street"
+                  name="address.street"
+                  value={formData.address.street}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label htmlFor="address.postalCode" className="block text-gray-700 font-medium mb-2">
+                    Code postal
+                  </label>
+                  <input
+                    type="text"
+                    id="address.postalCode"
+                    name="address.postalCode"
+                    value={formData.address.postalCode}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="address.city" className="block text-gray-700 font-medium mb-2">
+                    Ville
+                  </label>
+                  <input
+                    type="text"
+                    id="address.city"
+                    name="address.city"
+                    value={formData.address.city}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="isActive"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                    className="mr-2"
+                  />
+                  <span className="text-gray-700">Actif</span>
+                </label>
               </div>
               
               <div className="flex justify-end space-x-3">
