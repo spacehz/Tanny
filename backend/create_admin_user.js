@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 async function createAdminUser() {
   try {
     // Connexion à MongoDB
-    await mongoose.connect('mongodb://admin:12345@localhost:27017/tanny?authSource=admin', {
+    await mongoose.connect('mongodb://admin:12345@localhost:27017/TANY?authSource=admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

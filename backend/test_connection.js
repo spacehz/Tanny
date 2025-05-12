@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 async function testConnection() {
   try {
     // Utiliser la même chaîne de connexion que dans database.js
-    const conn = await mongoose.connect('mongodb://admin:12345@localhost:27017/tanny', {
+    const conn = await mongoose.connect('mongodb://admin:12345@localhost:27017/TANY', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

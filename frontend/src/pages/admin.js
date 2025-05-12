@@ -19,8 +19,8 @@ export default function AdminDashboard() {
   return (
     <ProtectedRoute requiredRole="admin">
       <Head>
-        <title>Dashboard Admin | TANNY</title>
-        <meta name="description" content="Tableau de bord administrateur de l'application TANNY" />
+        <title>Dashboard Admin | TANY</title>
+        <meta name="description" content="Tableau de bord administrateur de l'application TANY" />
       </Head>
 
       <div className="flex">

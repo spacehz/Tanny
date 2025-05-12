@@ -13,8 +13,8 @@ export default function MerchantsManagement() {
   return (
     <>
       <Head>
-        <title>Gestion des commerçants | TANNY Admin</title>
-        <meta name="description" content="Gestion des commerçants partenaires de l'association TANNY" />
+        <title>Gestion des commerçants | TANY Admin</title>
+        <meta name="description" content="Gestion des commerçants partenaires de l'association TANY" />
       </Head>
 
       <div className="flex">

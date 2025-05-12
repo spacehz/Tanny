@@ -10,7 +10,7 @@ dotenv.config();
 const createAdminUser = async () => {
   try {
     // Connexion à MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tanny', {
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/TANY', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

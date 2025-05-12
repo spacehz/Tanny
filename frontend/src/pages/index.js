@@ -33,15 +33,15 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>TANNY - Association de Glanage Alimentaire</title>
-        <meta name="description" content="Application web pour l'association de glanage alimentaire TANNY" />
+        <title>TANY - Association de Glanage Alimentaire</title>
+        <meta name="description" content="Application web pour l'association de glanage alimentaire TANY" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main className="container-page">
         <div className="max-w-5xl mx-auto">
           <h1 className="text-5xl font-bold text-center text-primary-600 mb-4">
-            Bienvenue sur TANNY
+            Bienvenue sur TANY
           </h1>
           <p className="text-2xl text-center mb-8 text-gray-600">
             Association de Glanage Alimentaire

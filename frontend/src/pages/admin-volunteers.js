@@ -30,8 +30,8 @@ export default function VolunteersManagement() {
   return (
     <>
       <Head>
-        <title>Gestion des bénévoles | TANNY Admin</title>
-        <meta name="description" content="Gestion des bénévoles de l'association TANNY" />
+        <title>Gestion des bénévoles | TANY Admin</title>
+        <meta name="description" content="Gestion des bénévoles de l'association TANY" />
       </Head>
 
       <div className="flex">

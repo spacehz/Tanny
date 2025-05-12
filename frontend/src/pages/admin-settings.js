@@ -5,8 +5,8 @@ export default function SettingsManagement() {
   return (
     <>
       <Head>
-        <title>Paramètres | TANNY Admin</title>
-        <meta name="description" content="Paramètres de l'application TANNY" />
+        <title>Paramètres | TANY Admin</title>
+        <meta name="description" content="Paramètres de l'application TANY" />
       </Head>
 
       <div className="flex">

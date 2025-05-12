@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 async function testConnection() {
   try {
     // Utiliser la même chaîne de connexion que dans database.js mis à jour
-    const conn = await mongoose.connect('mongodb://admin:12345@localhost:27017/tanny?authSource=admin', {
+    const conn = await mongoose.connect('mongodb://admin:12345@localhost:27017/TANY?authSource=admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

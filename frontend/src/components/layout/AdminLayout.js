@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Header from './Header';
-import Footer from './Footer';
 import Sidebar from '../Sidebar';
 
 // Helper function to safely access localStorage
@@ -28,17 +26,13 @@ export default function AdminLayout({ children }) {
   }, [router]);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="flex flex-grow">
-        <Sidebar />
-        <div className="admin-content flex-grow transition-all duration-300">
-          <main className="p-6">
-            {children}
-          </main>
-        </div>
+    <div className="flex flex-1">
+      <Sidebar />
+      <div className="admin-content flex-grow transition-all duration-300">
+        <main className="p-6">
+          {children}
+        </main>
       </div>
-      <Footer />
     </div>
   );
 }

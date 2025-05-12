@@ -1,6 +1,6 @@
-# TANNY - Association de Glanage Alimentaire
+# TANY - Association de Glanage Alimentaire
 
-Application web pour l'association de glanage alimentaire TANNY.
+Application web pour l'association de glanage alimentaire TANY.
 
 ## Structure du projet
 

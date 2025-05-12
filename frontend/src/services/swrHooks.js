@@ -91,7 +91,7 @@ export const useVolunteer = (id) => {
  * @param {number} limit - Nombre d'éléments par page
  */
 export const useMerchants = (page = 1, limit = 10) => {
-  return useData(`/api/users/merchants?page=${page}&limit=${limit}`);
+  return useData(`/api/merchants?page=${page}&limit=${limit}`);
 };
 
 /**
@@ -99,5 +99,20 @@ export const useMerchants = (page = 1, limit = 10) => {
  * @param {string|number} id - ID du commerçant
  */
 export const useMerchant = (id) => {
-  return useData(id ? `/api/users/merchants/${id}` : null);
+  return useData(id ? `/api/merchants/${id}` : null);
+};
+
+/**
+ * Hook pour récupérer tous les événements
+ */
+export const useEvents = () => {
+  return useData('/api/events');
+};
+
+/**
+ * Hook pour récupérer un événement par son ID
+ * @param {string|number} id - ID de l'événement
+ */
+export const useEvent = (id) => {
+  return useData(id ? `/api/events/${id}` : null);
 };

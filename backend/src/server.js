@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 const morgan = require('morgan');
 const connectDB = require('./config/database');
 const userRoutes = require('./routes/userRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const merchantRoutes = require('./routes/merchantRoutes');
 
 // Chargement des variables d'environnement
 dotenv.config();
@@ -24,10 +26,12 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/api/users', userRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/merchants', merchantRoutes);
 
 // Route de base
 app.get('/', (req, res) => {
-  res.json({ message: 'API Tanny est en ligne' });
+  res.json({ message: 'API TANY est en ligne' });
 });
 
 // Gestion des routes non trouvées

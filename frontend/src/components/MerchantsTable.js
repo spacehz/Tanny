@@ -9,12 +9,21 @@ export default function MerchantsTable() {
   const [itemsPerPage] = useState(10);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
     businessName: '',
-    address: '',
-    phone: '',
+    legalRepresentative: {
+      firstName: '',
+      lastName: ''
+    },
+    email: '',
+    phoneNumber: '',
+    siret: '',
+    address: {
+      street: '',
+      city: '',
+      postalCode: '',
+      country: 'France'
+    },
+    isActive: true
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -25,21 +34,43 @@ export default function MerchantsTable() {
   // Gérer les changements de formulaire
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    
+    // Gestion des champs imbriqués (legalRepresentative, address)
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setFormData((prev) => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   // Ouvrir le modal pour éditer un commerçant
   const handleEditClick = (merchant) => {
     setFormData({
-      name: merchant.name,
+      businessName: merchant.businessName,
+      legalRepresentative: merchant.legalRepresentative || {
+        firstName: '',
+        lastName: ''
+      },
       email: merchant.email,
-      password: '',
-      businessName: merchant.businessName || '',
-      address: merchant.address || '',
-      phone: merchant.phone || '',
+      phoneNumber: merchant.phoneNumber,
+      siret: merchant.siret,
+      address: merchant.address || {
+        street: '',
+        city: '',
+        postalCode: '',
+        country: 'France'
+      },
+      isActive: merchant.isActive
     });
     setEditingId(merchant._id);
     setIsModalOpen(true);
@@ -57,10 +88,10 @@ export default function MerchantsTable() {
     
     try {
       // Mettre à jour un commerçant existant
-      await api.put(`/api/users/merchants/${editingId}`, formData);
+      await api.put(`/api/merchants/${editingId}`, formData);
       
       // Revalider les données
-      mutate(`/api/users/merchants?page=${currentPage}&limit=${itemsPerPage}`);
+      mutate(`/api/merchants?page=${currentPage}&limit=${itemsPerPage}`);
       
       // Fermer le modal
       handleCloseModal();
@@ -73,10 +104,10 @@ export default function MerchantsTable() {
   // Supprimer un commerçant
   const handleDelete = async (id) => {
     try {
-      await api.delete(`/api/users/merchants/${id}`);
+      await api.delete(`/api/merchants/${id}`);
       
       // Revalider les données
-      mutate(`/api/users/merchants?page=${currentPage}&limit=${itemsPerPage}`);
+      mutate(`/api/merchants?page=${currentPage}&limit=${itemsPerPage}`);
       
       // Fermer la confirmation
       setDeleteConfirmId(null);
@@ -102,7 +133,7 @@ export default function MerchantsTable() {
   }
 
   // Préparer les données des commerçants
-  const merchants = data?.merchants || [];
+  const merchants = data || [];
 
   return (
     <div className="overflow-x-auto">
@@ -113,11 +144,12 @@ export default function MerchantsTable() {
       <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
         <thead className="bg-gray-100">
           <tr>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Nom</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Email</th>
             <th className="py-3 px-4 text-left font-semibold text-gray-700">Commerce</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Adresse</th>
+            <th className="py-3 px-4 text-left font-semibold text-gray-700">Représentant légal</th>
+            <th className="py-3 px-4 text-left font-semibold text-gray-700">Email</th>
             <th className="py-3 px-4 text-left font-semibold text-gray-700">Téléphone</th>
+            <th className="py-3 px-4 text-left font-semibold text-gray-700">SIRET</th>
+            <th className="py-3 px-4 text-left font-semibold text-gray-700">Adresse</th>
             <th className="py-3 px-4 text-left font-semibold text-gray-700">Statut</th>
             <th className="py-3 px-4 text-center font-semibold text-gray-700">Actions</th>
           </tr>
@@ -125,18 +157,27 @@ export default function MerchantsTable() {
         <tbody>
           {merchants.length === 0 ? (
             <tr>
-              <td colSpan="7" className="py-4 text-center text-gray-500">
+              <td colSpan="8" className="py-4 text-center text-gray-500">
                 Aucun commerçant trouvé.
               </td>
             </tr>
           ) : (
             merchants.map((merchant) => (
             <tr key={merchant._id} className="border-t border-gray-200 hover:bg-gray-50">
-              <td className="py-3 px-4">{merchant.name}</td>
+              <td className="py-3 px-4">{merchant.businessName}</td>
+              <td className="py-3 px-4">
+                {merchant.legalRepresentative ? 
+                  `${merchant.legalRepresentative.firstName} ${merchant.legalRepresentative.lastName}` : 
+                  '-'}
+              </td>
               <td className="py-3 px-4">{merchant.email}</td>
-              <td className="py-3 px-4">{merchant.businessName || '-'}</td>
-              <td className="py-3 px-4">{merchant.address || '-'}</td>
-              <td className="py-3 px-4">{merchant.phone || '-'}</td>
+              <td className="py-3 px-4">{merchant.phoneNumber || '-'}</td>
+              <td className="py-3 px-4">{merchant.siret || '-'}</td>
+              <td className="py-3 px-4">
+                {merchant.address ? 
+                  `${merchant.address.street || ''}, ${merchant.address.postalCode || ''} ${merchant.address.city || ''}` : 
+                  '-'}
+              </td>
               <td className="py-3 px-4">
                 <span className={`px-2 py-1 rounded-full text-xs ${merchant.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                   {merchant.isActive ? 'Actif' : 'Inactif'}
@@ -166,7 +207,7 @@ export default function MerchantsTable() {
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
                       <h3 className="text-lg font-bold mb-4">Confirmer la suppression</h3>
                       <p className="mb-6">
-                        Êtes-vous sûr de vouloir supprimer le commerçant <strong>{merchant.name}</strong> ?
+                        Êtes-vous sûr de vouloir supprimer le commerçant <strong>{merchant.businessName}</strong> ?
                         Cette action est irréversible.
                       </p>
                       <div className="flex justify-end space-x-3">

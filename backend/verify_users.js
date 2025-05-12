@@ -4,7 +4,7 @@ const User = require('./src/models/User');
 async function verifyUsers() {
   try {
     // Connexion à MongoDB
-    await mongoose.connect('mongodb://admin:12345@localhost:27017/tanny?authSource=admin', {
+    await mongoose.connect('mongodb://admin:12345@localhost:27017/TANY?authSource=admin', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

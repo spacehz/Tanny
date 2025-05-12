@@ -90,7 +90,7 @@ export default function Sidebar() {
       <div className="flex justify-between items-center p-4 border-b border-primary-600">
         <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>
           <Link href="/admin" className="text-xl font-bold">
-            TANNY Admin
+            TANY Admin
           </Link>
         </div>
         <button 

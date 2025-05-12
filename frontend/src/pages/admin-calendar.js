@@ -86,8 +86,8 @@ export default function CalendarManagement() {
   return (
     <>
       <Head>
-        <title>Calendrier | TANNY Admin</title>
-        <meta name="description" content="Calendrier des événements de l'association TANNY" />
+        <title>Calendrier | TANY Admin</title>
+        <meta name="description" content="Calendrier des événements de l'association TANY" />
       </Head>
 
       <div className="flex">

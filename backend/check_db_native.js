@@ -9,21 +9,21 @@ async function checkAndCreateDB() {
     await client.connect();
     console.log('Connecté à MongoDB');
     
-    // Vérifier si la base de données "tanny" existe
+    // Vérifier si la base de données "TANY" existe
     const adminDb = client.db('admin');
     const dbs = await adminDb.admin().listDatabases();
     
-    const tannyExists = dbs.databases.some(db => db.name === 'tanny');
+    const TANYExists = dbs.databases.some(db => db.name === 'TANY');
     
-    if (tannyExists) {
-      console.log('La base de données "tanny" existe déjà');
+    if (TANYExists) {
+      console.log('La base de données "TANY" existe déjà');
     } else {
-      console.log('La base de données "tanny" n\'existe pas, création en cours...');
+      console.log('La base de données "TANY" n\'existe pas, création en cours...');
       
-      // Créer une collection dans la base de données "tanny" pour la créer
-      const tannyDb = client.db('tanny');
-      await tannyDb.createCollection('init');
-      console.log('Base de données "tanny" créée avec succès');
+      // Créer une collection dans la base de données "TANY" pour la créer
+      const TANYDb = client.db('TANY');
+      await TANYDb.createCollection('init');
+      console.log('Base de données "TANY" créée avec succès');
     }
   } catch (error) {
     console.error('Erreur:', error.message);
