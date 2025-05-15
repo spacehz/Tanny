@@ -28,25 +28,16 @@ const eventSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    // Champs pour les collectes
+    // Champ pour les collectes
     merchantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    // Champ commun pour tous les types d'événements
     expectedVolunteers: {
       type: Number,
       default: 1,
       min: [1, 'Au moins un bénévole est requis'],
-    },
-    // Champs pour les marchés
-    duration: {
-      type: String,
-      trim: true,
-    },
-    numberOfStands: {
-      type: Number,
-      default: 1,
-      min: [1, 'Au moins un stand est requis'],
     },
     // Bénévoles participants
     volunteers: [

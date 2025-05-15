@@ -6,6 +6,13 @@ const User = require('../models/User');
 // Générer un token JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'secret_dev_key', {
+    expiresIn: '24h', // Réduit à 24h pour plus de sécurité
+  });
+};
+
+// Générer un token de rafraîchissement
+const generateRefreshToken = (id) => {
+  return jwt.sign({ id }, process.env.REFRESH_TOKEN_SECRET || 'refresh_secret_dev_key', {
     expiresIn: '30d',
   });
 };
@@ -79,7 +86,27 @@ exports.loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Email ou mot de passe invalide' });
     }
 
-    // Générer un token JWT
+    // Générer les tokens
+    const token = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    // Définir les cookies HTTP-only
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Seulement en HTTPS en production
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/api/users/refresh-token', // Restreint le cookie à cette route
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 jours
+    });
+
+    // Renvoyer les informations de l'utilisateur (sans le token dans le corps)
     res.json({
       user: {
         _id: user._id,
@@ -87,7 +114,7 @@ exports.loginUser = async (req, res) => {
         email: user.email,
         role: user.role,
       },
-      token: generateToken(user._id),
+      isAuthenticated: true
     });
   } catch (error) {
     console.error(error);
@@ -474,6 +501,62 @@ exports.deleteMerchant = async (req, res) => {
     }
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// @desc    Rafraîchir le token d'accès
+// @route   POST /api/users/refresh-token
+// @access  Public (avec cookie refreshToken)
+exports.refreshToken = async (req, res) => {
+  try {
+    // Récupérer le refresh token du cookie
+    const refreshToken = req.cookies.refreshToken;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Rafraîchissement non autorisé, pas de token' });
+    }
+    
+    // Vérifier le refresh token
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET || 'refresh_secret_dev_key');
+    
+    // Trouver l'utilisateur
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(401).json({ message: 'Utilisateur non trouvé' });
+    }
+    
+    // Générer un nouveau token d'accès
+    const newToken = generateToken(user._id);
+    
+    // Définir le nouveau cookie
+    res.cookie('token', newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    });
+    
+    res.json({ message: 'Token rafraîchi avec succès', isAuthenticated: true });
+  } catch (error) {
+    console.error('Erreur lors du rafraîchissement du token:', error);
+    res.status(401).json({ message: 'Rafraîchissement non autorisé, token invalide' });
+  }
+};
+
+// @desc    Déconnecter l'utilisateur
+// @route   POST /api/users/logout
+// @access  Public
+exports.logoutUser = async (req, res) => {
+  try {
+    // Effacer les cookies
+    res.clearCookie('token');
+    res.clearCookie('refreshToken');
+    
+    res.json({ message: 'Déconnexion réussie' });
+  } catch (error) {
+    console.error('Erreur lors de la déconnexion:', error);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };

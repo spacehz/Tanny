@@ -31,6 +31,84 @@
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
   }
   
+  /* Styles pour le carrousel */
+  .carousel-container {
+    @apply relative overflow-hidden rounded-lg;
+  }
+  
+  .carousel-slide {
+    @apply w-full flex-shrink-0 transition-opacity duration-500;
+  }
+  
+  .carousel-indicator {
+    @apply w-3 h-3 rounded-full transition-colors;
+  }
+  
+  .carousel-indicator-active {
+    @apply bg-white;
+  }
+  
+  .carousel-indicator-inactive {
+    @apply bg-gray-400 bg-opacity-50;
+  }
+  
+  /* Styles pour le formulaire d'inscription */
+  .register-form-container {
+    @apply bg-white rounded-lg shadow-lg overflow-hidden;
+  }
+  
+  .register-step-indicator {
+    @apply flex items-center justify-center space-x-2 mb-6;
+  }
+  
+  .register-step {
+    @apply flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors;
+  }
+  
+  .register-step-active {
+    @apply bg-primary-600 text-white;
+  }
+  
+  .register-step-inactive {
+    @apply bg-gray-200 text-gray-600;
+  }
+  
+  .register-step-line {
+    @apply w-12 h-1 transition-colors;
+  }
+  
+  .register-step-line-active {
+    @apply bg-primary-600;
+  }
+  
+  .register-step-line-inactive {
+    @apply bg-gray-200;
+  }
+  
+  .register-card {
+    @apply p-6 border rounded-lg text-center transition-all;
+  }
+  
+  .register-card-active {
+    @apply border-primary-500 bg-primary-50 shadow-md;
+  }
+  
+  .register-card-inactive {
+    @apply border-gray-200 hover:border-primary-300 hover:bg-gray-50;
+  }
+  
+  .form-input {
+    @apply mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
+  }
+  
+  .form-input-error {
+    @apply border-red-300;
+  }
+  
+  .form-error {
+    @apply mt-1 text-sm text-red-600;
+  }
+  
   /* Styles pour la sidebar admin */
   .admin-sidebar {
     width: 250px;

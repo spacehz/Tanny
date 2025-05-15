@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
+const csrf = require('csurf');
 const connectDB = require('./config/database');
 const userRoutes = require('./routes/userRoutes');
 const eventRoutes = require('./routes/eventRoutes');
@@ -16,13 +18,44 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true // Permet l'envoi de cookies avec les requêtes CORS
+}));
 app.use(express.json());
+app.use(cookieParser()); // Pour analyser les cookies
+
+// Protection CSRF
+const csrfProtection = csrf({ cookie: true });
+
+// Appliquer la protection CSRF à toutes les routes POST/PUT/DELETE sauf login/register/refresh
+app.use((req, res, next) => {
+  // Exclure certaines routes de la protection CSRF
+  if (
+    req.path === '/api/users/login' || 
+    req.path === '/api/users/register' || 
+    req.path === '/api/users/refresh-token'
+  ) {
+    return next();
+  }
+  
+  // Appliquer la protection CSRF aux autres routes
+  if (req.method !== 'GET') {
+    return csrfProtection(req, res, next);
+  }
+  
+  next();
+});
 
 // Logger en mode développement
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
+
+// Route pour obtenir un token CSRF
+app.get('/api/csrf-token', csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
 
 // Routes
 app.use('/api/users', userRoutes);

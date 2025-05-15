@@ -5,6 +5,8 @@ const {
   getEventById,
   updateEvent,
   deleteEvent,
+  registerForEvent,
+  unregisterFromEvent,
 } = require('../controllers/eventController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -18,5 +20,9 @@ router.get('/:id', getEventById);
 router.post('/', protect, admin, createEvent);
 router.put('/:id', protect, admin, updateEvent);
 router.delete('/:id', protect, admin, deleteEvent);
+
+// Routes pour l'inscription/désinscription des bénévoles
+router.post('/:id/register', protect, registerForEvent);
+router.post('/:id/unregister', protect, unregisterFromEvent);
 
 module.exports = router;

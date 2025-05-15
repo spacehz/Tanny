@@ -1,459 +1,227 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMerchants } from '../services/swrHooks';
+import MerchantModal from './MerchantModal';
+import DeleteConfirmationModal from './DeleteConfirmationModal';
+import Pagination from './Pagination';
 import api from '../services/api';
-import { mutate } from 'swr';
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { toast } from 'react-hot-toast';
+import { formatDate } from '../utils/dateUtils';
 
-export default function MerchantsTable() {
+const MerchantsTable = ({ searchTerm, showAddModal, setShowAddModal }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
-  const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({
-    businessName: '',
-    legalRepresentative: {
-      firstName: '',
-      lastName: ''
-    },
-    email: '',
-    phoneNumber: '',
-    siret: '',
-    address: {
-      street: '',
-      city: '',
-      postalCode: '',
-      country: 'France'
-    },
-    isActive: true
-  });
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-
-  // Récupérer les données des commerçants avec SWR
-  const { data, error, isLoading } = useMerchants(currentPage, itemsPerPage);
-
-  // Gérer les changements de formulaire
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Gestion des champs imbriqués (legalRepresentative, address)
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData((prev) => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
+  const [selectedMerchant, setSelectedMerchant] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState(null);
+  
+  const { data, error, isLoading, mutate } = useMerchants(
+    currentPage,
+    10,
+    searchTerm,
+    statusFilter
+  );
+  
+  // Reset to first page when search term or status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+  
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
   };
-
-  // Ouvrir le modal pour éditer un commerçant
-  const handleEditClick = (merchant) => {
-    setFormData({
-      businessName: merchant.businessName,
-      legalRepresentative: merchant.legalRepresentative || {
-        firstName: '',
-        lastName: ''
-      },
-      email: merchant.email,
-      phoneNumber: merchant.phoneNumber,
-      siret: merchant.siret,
-      address: merchant.address || {
-        street: '',
-        city: '',
-        postalCode: '',
-        country: 'France'
-      },
-      isActive: merchant.isActive
-    });
-    setEditingId(merchant._id);
-    setIsModalOpen(true);
+  
+  const handleStatusFilterChange = (e) => {
+    const value = e.target.value;
+    setStatusFilter(value === 'all' ? null : value === 'active');
   };
-
-  // Fermer le modal
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
+  
+  const handleEdit = (merchant) => {
+    setSelectedMerchant(merchant);
+    setShowEditModal(true);
   };
-
-  // Soumettre le formulaire pour éditer
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  
+  const handleDelete = (merchant) => {
+    setSelectedMerchant(merchant);
+    setShowDeleteModal(true);
+  };
+  
+  const handleModalSubmit = (updatedMerchant) => {
+    mutate();
+  };
+  
+  const handleDeleteConfirm = async () => {
     try {
-      // Mettre à jour un commerçant existant
-      await api.put(`/api/merchants/${editingId}`, formData);
-      
-      // Revalider les données
-      mutate(`/api/merchants?page=${currentPage}&limit=${itemsPerPage}`);
-      
-      // Fermer le modal
-      handleCloseModal();
+      await api.delete(`/api/merchants/${selectedMerchant._id}`);
+      toast.success('Commerçant supprimé avec succès');
+      mutate();
+      setShowDeleteModal(false);
     } catch (error) {
-      console.error('Erreur lors de la soumission:', error);
-      alert('Une erreur est survenue. Veuillez réessayer.');
+      console.error('Error deleting merchant:', error);
+      toast.error(error.response?.data?.message || 'Une erreur est survenue');
     }
   };
-
-  // Supprimer un commerçant
-  const handleDelete = async (id) => {
-    try {
-      await api.delete(`/api/merchants/${id}`);
-      
-      // Revalider les données
-      mutate(`/api/merchants?page=${currentPage}&limit=${itemsPerPage}`);
-      
-      // Fermer la confirmation
-      setDeleteConfirmId(null);
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      alert('Une erreur est survenue lors de la suppression.');
-    }
-  };
-
-  // Gérer la pagination
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
-  };
-
-  // Afficher un message de chargement
-  if (isLoading) {
-    return <div className="text-center py-4">Chargement des données...</div>;
-  }
-
-  // Afficher un message d'erreur
+  
   if (error) {
-    return <div className="text-center py-4 text-red-500">Erreur lors du chargement des données</div>;
-  }
-
-  // Préparer les données des commerçants
-  const merchants = data || [];
-
-  return (
-    <div className="overflow-x-auto">
-      <div className="mb-4">
-        <h2 className="text-xl font-semibold">Liste des commerçants</h2>
+    return (
+      <div className="text-center py-4">
+        <p className="text-red-500">Erreur lors du chargement des données</p>
       </div>
-
-      <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Commerce</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Représentant légal</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Email</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Téléphone</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">SIRET</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Adresse</th>
-            <th className="py-3 px-4 text-left font-semibold text-gray-700">Statut</th>
-            <th className="py-3 px-4 text-center font-semibold text-gray-700">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {merchants.length === 0 ? (
+    );
+  }
+  
+  return (
+    <div>
+      <div className="mb-4 flex justify-end">
+        <select
+          className="border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          value={statusFilter === null ? 'all' : statusFilter ? 'active' : 'inactive'}
+          onChange={handleStatusFilterChange}
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="active">Actifs</option>
+          <option value="inactive">Inactifs</option>
+        </select>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
             <tr>
-              <td colSpan="8" className="py-4 text-center text-gray-500">
-                Aucun commerçant trouvé.
-              </td>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Commerçant
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Contact
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Adresse
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                SIRET
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Statut
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date d'ajout
+              </th>
+              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
-          ) : (
-            merchants.map((merchant) => (
-            <tr key={merchant._id} className="border-t border-gray-200 hover:bg-gray-50">
-              <td className="py-3 px-4">{merchant.businessName}</td>
-              <td className="py-3 px-4">
-                {merchant.legalRepresentative ? 
-                  `${merchant.legalRepresentative.firstName} ${merchant.legalRepresentative.lastName}` : 
-                  '-'}
-              </td>
-              <td className="py-3 px-4">{merchant.email}</td>
-              <td className="py-3 px-4">{merchant.phoneNumber || '-'}</td>
-              <td className="py-3 px-4">{merchant.siret || '-'}</td>
-              <td className="py-3 px-4">
-                {merchant.address ? 
-                  `${merchant.address.street || ''}, ${merchant.address.postalCode || ''} ${merchant.address.city || ''}` : 
-                  '-'}
-              </td>
-              <td className="py-3 px-4">
-                <span className={`px-2 py-1 rounded-full text-xs ${merchant.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  {merchant.isActive ? 'Actif' : 'Inactif'}
-                </span>
-              </td>
-              <td className="py-3 px-4 text-center">
-                <div className="flex justify-center space-x-3">
-                  <button
-                    onClick={() => handleEditClick(merchant)}
-                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    title="Modifier"
-                  >
-                    <PencilIcon className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirmId(merchant._id)}
-                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-300"
-                    title="Supprimer"
-                  >
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                </div>
-                
-                {/* Confirmation de suppression */}
-                {deleteConfirmId === merchant._id && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-                      <h3 className="text-lg font-bold mb-4">Confirmer la suppression</h3>
-                      <p className="mb-6">
-                        Êtes-vous sûr de vouloir supprimer le commerçant <strong>{merchant.businessName}</strong> ?
-                        Cette action est irréversible.
-                      </p>
-                      <div className="flex justify-end space-x-3">
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          className="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded"
-                        >
-                          Annuler
-                        </button>
-                        <button
-                          onClick={() => handleDelete(merchant._id)}
-                          className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    </div>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {isLoading ? (
+              <tr>
+                <td colSpan="7" className="px-6 py-4 text-center">
+                  <div className="flex justify-center">
+                    <svg className="animate-spin h-5 w-5 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
                   </div>
-                )}
-              </td>
-            </tr>
-          ))
-          )}
-        </tbody>
-      </table>
-
-      {/* Pagination */}
+                </td>
+              </tr>
+            ) : data?.merchants?.length > 0 ? (
+              data.merchants.map((merchant) => (
+                <tr key={merchant._id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{merchant.businessName}</div>
+                    <div className="text-sm text-gray-500">{merchant.email}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {merchant.legalRepresentative ? 
+                        `${merchant.legalRepresentative.firstName} ${merchant.legalRepresentative.lastName}` : 
+                        ''}
+                    </div>
+                    <div className="text-sm text-gray-500">{merchant.phoneNumber}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {merchant.address ? (
+                        <>
+                          {merchant.address.street}<br />
+                          {merchant.address.postalCode} {merchant.address.city}
+                        </>
+                      ) : ''}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {merchant.siret}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      merchant.isActive
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {merchant.isActive ? 'Actif' : 'Inactif'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDate(merchant.createdAt)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => handleEdit(merchant)}
+                      className="text-primary-600 hover:text-primary-900 mr-4"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      onClick={() => handleDelete(merchant)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                  Aucun commerçant trouvé
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      
       {data && data.pages > 1 && (
-        <div className="flex justify-center mt-6">
-          <nav className="flex items-center">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className={`mx-1 px-3 py-1 rounded ${
-                currentPage === 1
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              Précédent
-            </button>
-            
-            {[...Array(data.pages).keys()].map((page) => (
-              <button
-                key={page + 1}
-                onClick={() => handlePageChange(page + 1)}
-                className={`mx-1 px-3 py-1 rounded ${
-                  currentPage === page + 1
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                {page + 1}
-              </button>
-            ))}
-            
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === data.pages}
-              className={`mx-1 px-3 py-1 rounded ${
-                currentPage === data.pages
-                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              Suivant
-            </button>
-          </nav>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={data.pages}
+          onPageChange={handlePageChange}
+        />
       )}
-
-      {/* Modal pour éditer un commerçant */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-            <h3 className="text-lg font-bold mb-4">
-              Modifier le commerçant
-            </h3>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label htmlFor="businessName" className="block text-gray-700 font-medium mb-2">
-                  Nom du commerce
-                </label>
-                <input
-                  type="text"
-                  id="businessName"
-                  name="businessName"
-                  value={formData.businessName}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label htmlFor="legalRepresentative.firstName" className="block text-gray-700 font-medium mb-2">
-                    Prénom du représentant
-                  </label>
-                  <input
-                    type="text"
-                    id="legalRepresentative.firstName"
-                    name="legalRepresentative.firstName"
-                    value={formData.legalRepresentative.firstName}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="legalRepresentative.lastName" className="block text-gray-700 font-medium mb-2">
-                    Nom du représentant
-                  </label>
-                  <input
-                    type="text"
-                    id="legalRepresentative.lastName"
-                    name="legalRepresentative.lastName"
-                    value={formData.legalRepresentative.lastName}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="email" className="block text-gray-700 font-medium mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="phoneNumber" className="block text-gray-700 font-medium mb-2">
-                  Téléphone
-                </label>
-                <input
-                  type="text"
-                  id="phoneNumber"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="siret" className="block text-gray-700 font-medium mb-2">
-                  SIRET
-                </label>
-                <input
-                  type="text"
-                  id="siret"
-                  name="siret"
-                  value={formData.siret}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="address.street" className="block text-gray-700 font-medium mb-2">
-                  Rue
-                </label>
-                <input
-                  type="text"
-                  id="address.street"
-                  name="address.street"
-                  value={formData.address.street}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label htmlFor="address.postalCode" className="block text-gray-700 font-medium mb-2">
-                    Code postal
-                  </label>
-                  <input
-                    type="text"
-                    id="address.postalCode"
-                    name="address.postalCode"
-                    value={formData.address.postalCode}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="address.city" className="block text-gray-700 font-medium mb-2">
-                    Ville
-                  </label>
-                  <input
-                    type="text"
-                    id="address.city"
-                    name="address.city"
-                    value={formData.address.city}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isActive"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                    className="mr-2"
-                  />
-                  <span className="text-gray-700">Actif</span>
-                </label>
-              </div>
-              
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded"
-                >
-                  Enregistrer
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      
+      {/* Modal for adding a new merchant */}
+      <MerchantModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleModalSubmit}
+      />
+      
+      {/* Modal for editing a merchant */}
+      <MerchantModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSubmit={handleModalSubmit}
+        initialData={selectedMerchant}
+      />
+      
+      {/* Modal for confirming deletion */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Supprimer le commerçant"
+        message={`Êtes-vous sûr de vouloir supprimer le commerçant "${selectedMerchant?.businessName}" ? Cette action est irréversible.`}
+      />
     </div>
   );
-}
+};
+
+export default MerchantsTable;

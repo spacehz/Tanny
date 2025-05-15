@@ -12,18 +12,30 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     // Si le chargement est terminé et que l'utilisateur n'est pas authentifié
     if (!loading && !isAuthenticated) {
       router.push('/login');
+      return;
     }
 
     // Si un rôle spécifique est requis et que l'utilisateur n'a pas ce rôle
     // L'administrateur a accès à toutes les pages
-    if (!loading && isAuthenticated && requiredRole && user.role !== requiredRole && user.role !== 'admin') {
-      // Rediriger vers la page appropriée en fonction du rôle de l'utilisateur
-      if (user.role === 'admin') {
-        router.push('/admin');
-      } else if (user.role === 'merchant') {
-        router.push('/merchant');
-      } else {
-        router.push('/volunteer');
+    if (!loading && isAuthenticated && requiredRole) {
+      // Vérifier si l'utilisateur a le rôle requis ou est admin
+      const hasRequiredRole = 
+        user.role === requiredRole || 
+        user.role === 'admin' || 
+        (requiredRole === 'volunteer' && user.role === 'bénévole') ||
+        (requiredRole === 'merchant' && user.role === 'commerçant');
+      
+      if (!hasRequiredRole) {
+        // Rediriger vers la page appropriée en fonction du rôle de l'utilisateur
+        if (user.role === 'admin') {
+          router.push('/admin');
+        } else if (user.role === 'volunteer' || user.role === 'bénévole') {
+          router.push('/volunteer');
+        } else if (user.role === 'merchant' || user.role === 'commerçant') {
+          router.push('/merchant');
+        } else {
+          router.push('/');
+        }
       }
     }
   }, [loading, isAuthenticated, user, router, requiredRole]);
@@ -44,14 +56,22 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
 
   // Si un rôle spécifique est requis et que l'utilisateur n'a pas ce rôle
   // L'administrateur a accès à toutes les pages
-  if (requiredRole && user.role !== requiredRole && user.role !== 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500">Accès non autorisé</p>
+  if (requiredRole) {
+    const hasRequiredRole = 
+      user.role === requiredRole || 
+      user.role === 'admin' || 
+      (requiredRole === 'volunteer' && user.role === 'bénévole') ||
+      (requiredRole === 'merchant' && user.role === 'commerçant');
+    
+    if (!hasRequiredRole) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500">Accès non autorisé</p>
+          </div>
         </div>
-      </div>
-    );
+      );
+    }
   }
 
   // Si tout est bon, afficher le contenu protégé

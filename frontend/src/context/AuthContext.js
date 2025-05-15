@@ -12,24 +12,59 @@ export const AuthProvider = ({ children }) => {
   const router = useRouter();
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est déjà connecté
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      setUser(JSON.parse(userInfo));
-    }
-    setLoading(false);
-  }, []);
+    // Fonction pour vérifier l'état d'authentification
+    const checkAuthStatus = async () => {
+      try {
+        // Vérifier si l'utilisateur est déjà connecté via localStorage
+        const userInfo = localStorage.getItem('userInfo');
+        if (userInfo) {
+          setUser(JSON.parse(userInfo));
+          
+          // Ne pas vérifier le profil ici pour éviter une boucle infinie
+          // Le token sera vérifié lors des requêtes API normales
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification de l\'authentification:', error);
+        setUser(null);
+        localStorage.removeItem('userInfo');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuthStatus();
+    
+    // Configurer un intervalle pour rafraîchir le token périodiquement
+    // Utiliser un intervalle plus long pour éviter trop de requêtes
+    const refreshInterval = setInterval(async () => {
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        try {
+          await authService.refreshToken();
+        } catch (error) {
+          console.error('Erreur lors du rafraîchissement périodique du token:', error);
+          // Ne pas déconnecter l'utilisateur ici, laisser les intercepteurs gérer cela
+        }
+      }
+    }, 60 * 60 * 1000); // Rafraîchir toutes les 60 minutes au lieu de 20
+    
+    // Nettoyer l'intervalle lors du démontage du composant
+    return () => clearInterval(refreshInterval);
+  }, []); // Supprimer la dépendance à user pour éviter les boucles
 
   // Fonction pour s'inscrire
   const register = async (userData) => {
     try {
+      console.log('AuthContext register called with data:', userData);
       setLoading(true);
       setError(null);
       const data = await authService.register(userData);
+      console.log('Registration successful, received data:', data);
       setUser(data);
       router.push('/dashboard');
       return data;
     } catch (error) {
+      console.error('Registration error in AuthContext:', error);
       setError(error.toString());
       throw error;
     } finally {
@@ -43,20 +78,49 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const data = await authService.login(email, password);
+      
+      // Ajouter des logs pour déboguer
+      console.log('Données de connexion reçues:', data);
+      console.log('Utilisateur:', data.user);
+      console.log('Rôle de l\'utilisateur:', data.user?.role);
+      
+      // Stocker l'utilisateur dans l'état
       setUser(data.user);
       toast.success('Connexion effectuée avec succès');
       
-      // Vérifier si l'utilisateur est admin et rediriger
-      if (data.user && data.user.role === 'admin') {
-        // Utiliser await pour s'assurer que la redirection est terminée
-        await router.push('/admin');
+      // Rediriger en fonction du rôle de l'utilisateur
+      if (data.user) {
+        console.log('Redirection basée sur le rôle:', data.user.role);
+        
+        // Standardiser les noms de rôles
+        const role = data.user.role.toLowerCase();
+        
+        if (role === 'admin') {
+          // Redirection pour les administrateurs
+          console.log('Redirection vers /admin');
+          window.location.href = '/admin';
+        } else if (role === 'volunteer' || role === 'bénévole') {
+          // Redirection pour les bénévoles
+          console.log('Redirection vers /volunteer');
+          window.location.href = '/volunteer';
+        } else if (role === 'merchant' || role === 'commercant' || role === 'commerçant') {
+          // Redirection pour les commerçants
+          console.log('Redirection vers /merchant');
+          window.location.href = '/merchant';
+        } else {
+          // Redirection par défaut
+          console.log('Redirection vers / (rôle inconnu)');
+          window.location.href = '/';
+        }
       } else {
-        // Redirection pour les utilisateurs non-admin
-        await router.push('/');
+        // Redirection par défaut si aucun rôle n'est défini
+        console.log('Redirection vers / (aucun utilisateur)');
+        window.location.href = '/';
       }
       
       return data;
     } catch (error) {
+      console.error('Erreur de connexion:', error);
       setError(error.toString());
       throw error;
     } finally {
@@ -65,10 +129,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fonction pour se déconnecter
-  const logout = () => {
-    authService.logout();
-    setUser(null);
-    router.push('/login');
+  const logout = async () => {
+    try {
+      await authService.logout();
+      setUser(null);
+      // Redirection vers la page d'accueil après déconnexion
+      router.push('/');
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+      // Déconnecter quand même l'utilisateur localement en cas d'erreur
+      setUser(null);
+      // Redirection vers la page d'accueil même en cas d'erreur
+      router.push('/');
+    }
   };
 
   // Fonction pour mettre à jour le profil
@@ -97,6 +170,14 @@ export const AuthProvider = ({ children }) => {
     return user && (user.role === 'merchant' || user.role === 'admin');
   };
 
+  // Vérifier si l'utilisateur est bénévole
+  const isVolunteer = () => {
+    return user && (user.role === 'volunteer' || user.role === 'bénévole' || user.role === 'admin');
+  };
+
+  // Vérifier si l'utilisateur est authentifié
+  const isAuthenticated = !!user;
+
   return (
     <AuthContext.Provider
       value={{
@@ -109,6 +190,8 @@ export const AuthProvider = ({ children }) => {
         updateProfile,
         isAdmin,
         isMerchant,
+        isVolunteer,
+        isAuthenticated,
       }}
     >
       {children}

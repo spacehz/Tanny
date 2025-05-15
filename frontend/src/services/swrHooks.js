@@ -1,63 +1,159 @@
 import useSWR from 'swr';
 import api from './api';
 
+// Fetcher function for SWR
+const fetcher = async (url) => {
+  const response = await api.get(url);
+  return response.data;
+};
+
 /**
- * Fetcher personnalisé qui utilise l'instance Axios configurée
- * @param {string} url - URL de l'API à appeler
+ * Hook to fetch merchants with pagination, search, and filtering
+ * @param {number} page - Current page number
+ * @param {number} limit - Number of items per page
+ * @param {string} search - Search term
+ * @param {boolean|null} isActive - Filter by active status (true, false, or null for all)
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
  */
-const axiosFetcher = async (url) => {
-  try {
-    const response = await api.get(url);
-    return response.data;
-  } catch (error) {
-    throw error;
+export const useMerchants = (page = 1, limit = 10, search = '', isActive = null) => {
+  let url = `/api/merchants?page=${page}&limit=${limit}`;
+  
+  if (search) {
+    url += `&search=${encodeURIComponent(search)}`;
   }
+  
+  if (isActive !== null) {
+    url += `&isActive=${isActive}`;
+  }
+  
+  const { data, error, isLoading, mutate } = useSWR(url, fetcher);
+  
+  return {
+    data,
+    error,
+    isLoading,
+    mutate
+  };
 };
 
 /**
- * Hook personnalisé pour récupérer des données avec SWR et Axios
- * @param {string} url - URL de l'API relative (sans le baseURL)
- * @param {object} options - Options SWR additionnelles
+ * Hook to fetch a single merchant by ID
+ * @param {string} id - Merchant ID
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
  */
-export const useData = (url, options = {}) => {
-  return useSWR(url, axiosFetcher, {
-    ...options,
-    // Vous pouvez ajouter des options spécifiques par défaut ici
-    suspense: false,
-    revalidateOnMount: true,
-  });
+export const useMerchant = (id) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    id ? `/api/merchants/${id}` : null,
+    fetcher
+  );
+  
+  return {
+    merchant: data,
+    error,
+    isLoading,
+    mutate
+  };
 };
 
 /**
- * Hook pour récupérer un utilisateur par son ID
- * @param {string|number} id - ID de l'utilisateur
+ * Hook to fetch events with pagination, search, and filtering
+ * @param {number} page - Current page number
+ * @param {number} limit - Number of items per page
+ * @param {string} search - Search term
+ * @param {string|null} status - Filter by status
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
  */
-export const useUser = (id) => {
-  return useData(id ? `/api/users/${id}` : null);
+export const useEvents = (page = 1, limit = 10, search = '', status = null) => {
+  let url = `/api/events?page=${page}&limit=${limit}`;
+  
+  if (search) {
+    url += `&search=${encodeURIComponent(search)}`;
+  }
+  
+  if (status) {
+    url += `&status=${status}`;
+  }
+  
+  const { data, error, isLoading, mutate } = useSWR(url, fetcher);
+  
+  return {
+    data,
+    error,
+    isLoading,
+    mutate
+  };
 };
 
 /**
- * Hook pour récupérer tous les produits
+ * Hook to fetch a single event by ID
+ * @param {string} id - Event ID
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
  */
-export const useProducts = () => {
-  return useData('/api/products');
+export const useEvent = (id) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    id ? `/api/events/${id}` : null,
+    fetcher
+  );
+  
+  return {
+    event: data,
+    error,
+    isLoading,
+    mutate
+  };
 };
 
 /**
- * Hook pour récupérer un produit par son ID
- * @param {string|number} id - ID du produit
+ * Hook to fetch collections with pagination and search
+ * @param {number} page - Current page number
+ * @param {number} limit - Number of items per page
+ * @param {string} search - Search term
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
  */
-export const useProduct = (id) => {
-  return useData(id ? `/api/products/${id}` : null);
+export const useCollections = (page = 1, limit = 10, search = '') => {
+  let url = `/api/collections?page=${page}&limit=${limit}`;
+  
+  if (search) {
+    url += `&search=${encodeURIComponent(search)}`;
+  }
+  
+  const { data, error, isLoading, mutate } = useSWR(url, fetcher);
+  
+  return {
+    data,
+    error,
+    isLoading,
+    mutate
+  };
 };
 
 /**
- * Hook pour récupérer tous les bénévoles avec pagination, recherche et filtrage
- * @param {number} page - Numéro de la page
- * @param {number} limit - Nombre d'éléments par page
- * @param {string} search - Terme de recherche (optionnel)
- * @param {string} availability - Filtre de disponibilité (optionnel)
- * @param {boolean} isActive - Filtre de statut (optionnel)
+ * Hook to fetch a single collection by ID
+ * @param {string} id - Collection ID
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
+ */
+export const useCollection = (id) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    id ? `/api/collections/${id}` : null,
+    fetcher
+  );
+  
+  return {
+    collection: data,
+    error,
+    isLoading,
+    mutate
+  };
+};
+
+/**
+ * Hook to fetch volunteers with pagination, search, and filtering
+ * @param {number} page - Current page number
+ * @param {number} limit - Number of items per page
+ * @param {string} search - Search term
+ * @param {string} availability - Filter by availability
+ * @param {boolean|null} isActive - Filter by active status (true, false, or null for all)
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
  */
 export const useVolunteers = (page = 1, limit = 10, search = '', availability = '', isActive = null) => {
   let url = `/api/users/volunteers?page=${page}&limit=${limit}`;
@@ -74,45 +170,67 @@ export const useVolunteers = (page = 1, limit = 10, search = '', availability = 
     url += `&isActive=${isActive}`;
   }
   
-  return useData(url);
+  const { data, error, isLoading, mutate } = useSWR(url, fetcher);
+  
+  return {
+    data,
+    error,
+    isLoading,
+    mutate
+  };
 };
 
 /**
- * Hook pour récupérer un bénévole par son ID
- * @param {string|number} id - ID du bénévole
+ * Hook to fetch dashboard statistics
+ * @returns {Object} SWR response with counts for volunteers, merchants, collections, and upcoming markets
  */
-export const useVolunteer = (id) => {
-  return useData(id ? `/api/users/volunteers/${id}` : null);
-};
-
-/**
- * Hook pour récupérer tous les commerçants avec pagination
- * @param {number} page - Numéro de la page
- * @param {number} limit - Nombre d'éléments par page
- */
-export const useMerchants = (page = 1, limit = 10) => {
-  return useData(`/api/merchants?page=${page}&limit=${limit}`);
-};
-
-/**
- * Hook pour récupérer un commerçant par son ID
- * @param {string|number} id - ID du commerçant
- */
-export const useMerchant = (id) => {
-  return useData(id ? `/api/merchants/${id}` : null);
-};
-
-/**
- * Hook pour récupérer tous les événements
- */
-export const useEvents = () => {
-  return useData('/api/events');
-};
-
-/**
- * Hook pour récupérer un événement par son ID
- * @param {string|number} id - ID de l'événement
- */
-export const useEvent = (id) => {
-  return useData(id ? `/api/events/${id}` : null);
+export const useDashboardStats = () => {
+  // Fetch volunteers count
+  const volunteersResult = useVolunteers(1, 1);
+  
+  // Fetch merchants count
+  const merchantsResult = useMerchants(1, 1);
+  
+  // Fetch all events
+  const eventsResult = useEvents(1, 1000); // Get a large number to ensure we get all events
+  
+  // Calculate statistics
+  const stats = {
+    volunteersCount: volunteersResult.data?.total || 0,
+    merchantsCount: merchantsResult.data?.total || 0,
+    collectionsCount: 0,
+    upcomingMarketsCount: 0,
+    newVolunteersThisMonth: 0,
+    newMerchantsThisMonth: 0,
+    upcomingCollections: 0
+  };
+  
+  // If events data is available, calculate collections and upcoming markets counts
+  if (eventsResult.data?.data) {
+    const now = new Date();
+    const events = eventsResult.data.data;
+    
+    // Count collections (events of type 'collecte')
+    stats.collectionsCount = events.filter(event => event.type === 'collecte').length;
+    
+    // Count upcoming collections
+    stats.upcomingCollections = events.filter(event => 
+      event.type === 'collecte' && new Date(event.start) > now
+    ).length;
+    
+    // Count upcoming markets (events of type 'marché')
+    stats.upcomingMarketsCount = events.filter(event => 
+      event.type === 'marché' && new Date(event.start) > now
+    ).length;
+  }
+  
+  // Calculate loading and error states
+  const isLoading = volunteersResult.isLoading || merchantsResult.isLoading || eventsResult.isLoading;
+  const error = volunteersResult.error || merchantsResult.error || eventsResult.error;
+  
+  return {
+    stats,
+    isLoading,
+    error
+  };
 };

@@ -1,0 +1,78 @@
+/* Styles de base pour FullCalendar */
+.fc {
+  --fc-border-color: #ddd;
+  --fc-button-bg-color: #2563eb;
+  --fc-button-border-color: #2563eb;
+  --fc-button-hover-bg-color: #1d4ed8;
+  --fc-button-hover-border-color: #1d4ed8;
+  --fc-button-active-bg-color: #1e40af;
+  --fc-button-active-border-color: #1e40af;
+  --fc-event-bg-color: #3b82f6;
+  --fc-event-border-color: #3b82f6;
+  --fc-event-text-color: #fff;
+  --fc-today-bg-color: rgba(37, 99, 235, 0.1);
+}
+
+.fc-header-toolbar {
+  margin-bottom: 1.5em;
+}
+
+.fc-toolbar-title {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+.fc-daygrid-day-number {
+  padding: 0.5em;
+}
+
+.fc-event {
+  cursor: pointer;
+  padding: 0.2em 0.5em;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.fc-day-today {
+  background-color: var(--fc-today-bg-color) !important;
+}
+
+.fc-button {
+  padding: 0.4em 0.65em;
+  font-size: 0.9em;
+  border-radius: 0.25em;
+}
+
+.fc-button-primary {
+  background-color: var(--fc-button-bg-color);
+  border-color: var(--fc-button-border-color);
+  color: white;
+}
+
+.fc-button-primary:hover {
+  background-color: var(--fc-button-hover-bg-color);
+  border-color: var(--fc-button-hover-border-color);
+}
+
+.fc-button-primary:not(:disabled):active,
+.fc-button-primary:not(:disabled).fc-button-active {
+  background-color: var(--fc-button-active-bg-color);
+  border-color: var(--fc-button-active-border-color);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .fc-toolbar {
+    flex-direction: column;
+    gap: 0.5em;
+  }
+  
+  .fc-toolbar-title {
+    font-size: 1.2em;
+  }
+  
+  .fc-button {
+    padding: 0.3em 0.5em;
+    font-size: 0.8em;
+  }
+}

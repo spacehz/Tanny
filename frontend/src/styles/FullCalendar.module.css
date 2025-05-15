@@ -1,0 +1,50 @@
+/* Styles spécifiques pour le composant FullCalendar */
+.calendarContainer {
+  margin-bottom: 2rem;
+}
+
+.calendarContainer :global(.fc-button-primary) {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.calendarContainer :global(.fc-button-primary:hover) {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.calendarContainer :global(.fc-button-primary:not(:disabled):active),
+.calendarContainer :global(.fc-button-primary:not(:disabled).fc-button-active) {
+  background-color: #1e40af;
+  border-color: #1e40af;
+}
+
+.calendarContainer :global(.fc-today-button) {
+  text-transform: capitalize;
+}
+
+.calendarContainer :global(.fc-daygrid-day.fc-day-today) {
+  background-color: rgba(37, 99, 235, 0.1);
+}
+
+.calendarContainer :global(.fc-event) {
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .calendarContainer :global(.fc-toolbar) {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .calendarContainer :global(.fc-toolbar-title) {
+    font-size: 1.2rem;
+  }
+  
+  .calendarContainer :global(.fc-button) {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}

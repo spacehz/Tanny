@@ -2,11 +2,17 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
+import RegisterModal from '../RegisterModal';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const router = useRouter();
   const { user, logout, isAuthenticated, isAdmin, isVolunteer, isMerchant } = useAuth();
+  
+  // Debug log to check if user and isAuthenticated are correctly set
+  console.log('Header - User:', user);
+  console.log('Header - isAuthenticated:', isAuthenticated);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -14,20 +20,27 @@ const Header = () => {
 
   const handleLogout = () => {
     logout();
+    // Redirection vers la page d'accueil après déconnexion
     router.push('/');
   };
 
   return (
-    <header className="bg-primary-600 text-white">
+    <header className="bg-primary-600 text-white fixed top-0 left-0 right-0 z-20">
+      {/* Modal d'inscription */}
+      <RegisterModal 
+        isOpen={showRegisterModal} 
+        onClose={() => setShowRegisterModal(false)} 
+      />
+      
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
-          {/* Logo */}
-          <Link href="/" className="text-xl font-bold">
+          {/* Logo - Ajusté pour tenir compte de la sidebar dans les pages admin */}
+          <Link href="/" className={`text-xl font-bold ${router.pathname.startsWith('/admin') ? 'ml-64' : ''}`}>
             TANY
           </Link>
 
           {/* Navigation - Desktop */}
-          <nav className="hidden md:flex space-x-6">
+          <nav className="hidden md:flex space-x-6 ml-10">
             <Link href="/" className={`hover:text-primary-200 ${router.pathname === '/' ? 'font-bold' : ''}`}>
               Accueil
             </Link>
@@ -56,29 +69,39 @@ const Header = () => {
             )}
           </nav>
 
+          {/* Spacer to push user info to the right */}
+          <div className="flex-grow"></div>
+
           {/* Boutons de connexion/déconnexion - Desktop */}
           <div className="hidden md:flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                <span className="text-sm">Bonjour, {user?.name}</span>
+                <div className="flex items-center mr-4">
+                  <div className="bg-primary-700 rounded-full p-1 mr-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <span className="font-medium text-white">Bonjour, {user?.name}</span>
+                </div>
                 <button 
                   onClick={handleLogout}
-                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors"
+                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors font-medium"
                 >
                   Déconnexion
                 </button>
               </>
             ) : (
               <>
-                <Link href="/login" className="text-white hover:text-primary-200">
+                <Link href="/login" className="text-white hover:text-primary-200 font-medium">
                   Connexion
                 </Link>
-                <Link 
-                  href="/register" 
-                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors"
+                <button 
+                  onClick={() => setShowRegisterModal(true)} 
+                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors font-medium"
                 >
                   Inscription
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -125,25 +148,32 @@ const Header = () => {
               {/* Boutons de connexion/déconnexion - Mobile */}
               {isAuthenticated ? (
                 <>
-                  <span className="text-sm">Bonjour, {user?.name}</span>
+                  <div className="flex items-center mb-2">
+                    <div className="bg-primary-700 rounded-full p-1 mr-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <span className="font-medium text-white">Bonjour, {user?.name}</span>
+                  </div>
                   <button 
                     onClick={handleLogout}
-                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors self-start"
+                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors self-start font-medium"
                   >
                     Déconnexion
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/login" className="hover:text-primary-200">
+                  <Link href="/login" className="hover:text-primary-200 font-medium">
                     Connexion
                   </Link>
-                  <Link 
-                    href="/register" 
-                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors self-start"
+                  <button 
+                    onClick={() => setShowRegisterModal(true)} 
+                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors self-start font-medium"
                   >
                     Inscription
-                  </Link>
+                  </button>
                 </>
               )}
             </nav>

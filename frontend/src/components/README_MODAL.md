@@ -1,6 +1,6 @@
 # Intégration du Modal Dynamique pour les Collections
 
-Ce document explique comment intégrer le composant `CollectionModal.js` dans la page `admin-collections.js` pour afficher des champs dynamiques en fonction du type d'événement sélectionné (Collecte ou Marché).
+Ce document explique comment intégrer le composant `CollectionModal.js` dans la page `admin-collections.js` pour afficher des champs dynamiques en fonction du type d'événement sélectionné (Collecte ou Distribution).
 
 ## Étapes d'intégration
 
@@ -59,22 +59,18 @@ Le composant `CollectionModal` gère les champs suivants :
 - `title` : Titre de l'événement
 - `start` : Date et heure de début
 - `end` : Date et heure de fin
-- `type` : Type d'événement ('collecte' ou 'marché')
+- `type` : Type d'événement ('collecte' ou 'distribution')
 - `description` : Description de l'événement
 - `location` : Lieu de l'événement
 - `volunteers` : Liste des bénévoles
+- `expectedVolunteers` : Nombre de bénévoles attendus
 
 ### Champs spécifiques aux collectes
 - `merchantId` : ID du commerçant sélectionné
-- `expectedVolunteers` : Nombre de bénévoles attendus
-
-### Champs spécifiques aux marchés
-- `duration` : Durée du marché
-- `numberOfStands` : Nombre de stands
 
 ## Fonctionnalités
 
-- Affichage conditionnel des champs en fonction du type d'événement sélectionné
+- Affichage conditionnel des champs en fonction du type d'événement sélectionné (collecte ou distribution)
 - Récupération et affichage de la liste des commerçants pour les collectes
 - Validation des champs obligatoires
 - Gestion des erreurs lors du chargement des données externes

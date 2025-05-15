@@ -10,7 +10,7 @@ const {
 const { protect, admin } = require('../middleware/authMiddleware');
 
 router.route('/')
-  .post(protect, admin, createMerchant)
+  .post(createMerchant) // Allow public access for merchant registration
   .get(protect, admin, getMerchants);
 
 router.route('/:id')

@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useMerchants } from '../services/swrHooks';
-import { createEvent, updateEvent } from '../services/eventService';
 
 export default function CollectionModal({ 
   isOpen, 
@@ -19,16 +17,13 @@ export default function CollectionModal({
     description: '',
     location: '',
     volunteers: [],
-    // Nouveaux champs pour les collectes
-    merchantId: '',
-    expectedVolunteers: 1,
-    // Nouveaux champs pour les marchés
+    // Nouveaux champs pour les collectes et marchés
     duration: '',
+    expectedVolunteers: 1,
     numberOfStands: 1
   });
 
-  // Récupération des commerçants pour le sélecteur
-  const { data: merchantsData, error: merchantsError } = useMerchants(1, 100);
+
 
   useEffect(() => {
     if (initialData) {
@@ -41,14 +36,45 @@ export default function CollectionModal({
         location: initialData.location || '',
         volunteers: initialData.volunteers || [],
         // Nouveaux champs pour les collectes
-        merchantId: initialData.merchantId || '',
+        duration: initialData.duration || '',
         expectedVolunteers: initialData.expectedVolunteers || 1,
         // Nouveaux champs pour les marchés
-        duration: initialData.duration || '',
         numberOfStands: initialData.numberOfStands || 1
       });
     }
   }, [initialData]);
+  
+  // Calculer automatiquement la durée lorsque les dates de début ou de fin changent
+  useEffect(() => {
+    if (formData.start && formData.end) {
+      const startDate = new Date(formData.start);
+      const endDate = new Date(formData.end);
+      
+      if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+        // Calculer la différence en millisecondes
+        const diffMs = endDate - startDate;
+        
+        // Convertir en heures et minutes
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        // Formater la durée
+        let durationText = '';
+        if (diffHours > 0) {
+          durationText += `${diffHours} heure${diffHours > 1 ? 's' : ''}`;
+        }
+        if (diffMinutes > 0) {
+          durationText += `${durationText ? ' ' : ''}${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+        }
+        
+        // Mettre à jour le champ durée
+        setFormData(prev => ({
+          ...prev,
+          duration: durationText
+        }));
+      }
+    }
+  }, [formData.start, formData.end]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -63,46 +89,27 @@ export default function CollectionModal({
     setIsSubmitting(true);
     setError(null);
     
-    // Validation côté client pour le type collecte
-    if (formData.type === 'collecte' && (!formData.merchantId || formData.merchantId.trim() === '')) {
-      setError('Veuillez sélectionner un commerçant pour la collecte.');
-      setIsSubmitting(false);
-      return;
-    }
-    
     try {
       // Formatage des données si nécessaire
       const eventData = {
         ...formData,
         // Conversion des champs numériques
         expectedVolunteers: parseInt(formData.expectedVolunteers, 10),
-        numberOfStands: parseInt(formData.numberOfStands, 10)
+        numberOfStands: parseInt(formData.numberOfStands, 10),
+        // S'assurer que la durée est incluse
+        duration: formData.duration
       };
       
-      // Si le type n'est pas collecte, supprimer merchantId
-      if (eventData.type !== 'collecte') {
-        delete eventData.merchantId;
-      }
-      
-      let result;
-      if (isEditing && initialData?._id) {
-        // Mise à jour d'un événement existant
-        result = await updateEvent(initialData._id, eventData);
-      } else {
-        // Création d'un nouvel événement
-        result = await createEvent(eventData);
-      }
-      
-      // Appel de la fonction onSubmit du parent avec les données retournées par l'API
-      onSubmit(result.data);
+      // Appel de la fonction onSubmit du parent avec les données du formulaire
+      // Le parent (admin-collections.js) se chargera de l'appel API
+      onSubmit(eventData);
       
       // Fermeture du modal
       onClose();
     } catch (error) {
-      console.error('Erreur lors de l\'enregistrement de l\'événement:', error);
+      console.error('Erreur lors de la préparation de l\'événement:', error);
       setError(
-        error.response?.data?.message || 
-        'Une erreur est survenue lors de l\'enregistrement de l\'événement. Veuillez réessayer.'
+        'Une erreur est survenue lors de la préparation de l\'événement. Veuillez réessayer.'
       );
     } finally {
       setIsSubmitting(false);
@@ -187,31 +194,6 @@ export default function CollectionModal({
           {/* Champs dynamiques en fonction du type */}
           {formData.type === 'collecte' ? (
             <>
-              {/* Commerçant (pour Collecte) */}
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="merchantId">
-                  Commerçant
-                </label>
-                <select
-                  id="merchantId"
-                  name="merchantId"
-                  value={formData.merchantId}
-                  onChange={handleChange}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                >
-                  <option value="">Sélectionner un commerçant</option>
-                  {merchantsData?.merchants?.map((merchant) => (
-                    <option key={merchant._id} value={merchant._id}>
-                      {merchant.businessName || merchant.name}
-                    </option>
-                  ))}
-                </select>
-                {merchantsError && (
-                  <p className="text-red-500 text-xs italic">Erreur lors du chargement des commerçants</p>
-                )}
-              </div>
-
               {/* Lieu (pour Collecte) */}
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="location">
@@ -225,6 +207,23 @@ export default function CollectionModal({
                   onChange={handleChange}
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   placeholder="Lieu de la collecte"
+                />
+              </div>
+
+              {/* Durée (pour Collecte) */}
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="duration">
+                  Durée
+                </label>
+                <input
+                  type="text"
+                  id="duration"
+                  name="duration"
+                  value={formData.duration}
+                  onChange={handleChange}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  placeholder="Durée calculée automatiquement"
+                  readOnly
                 />
               </div>
 
@@ -274,7 +273,8 @@ export default function CollectionModal({
                   value={formData.duration}
                   onChange={handleChange}
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  placeholder="Ex: 3 heures"
+                  placeholder="Durée calculée automatiquement"
+                  readOnly
                 />
               </div>
 
@@ -288,6 +288,22 @@ export default function CollectionModal({
                   id="numberOfStands"
                   name="numberOfStands"
                   value={formData.numberOfStands}
+                  onChange={handleChange}
+                  min="1"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              
+              {/* Nombre de bénévoles attendus (pour Marché) */}
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="expectedVolunteers">
+                  Nombre de bénévoles attendus
+                </label>
+                <input
+                  type="number"
+                  id="expectedVolunteers"
+                  name="expectedVolunteers"
+                  value={formData.expectedVolunteers}
                   onChange={handleChange}
                   min="1"
                   className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"

@@ -37,13 +37,11 @@ const createEvent = async (req, res) => {
       type,
       description,
       location,
-      expectedVolunteers: type === 'collecte' ? expectedVolunteers : undefined,
-      duration: type === 'marché' ? duration : undefined,
-      numberOfStands: type === 'marché' ? numberOfStands : undefined,
+      expectedVolunteers, // Utilisé pour tous les types d'événements
       volunteers,
     };
     
-    // Ajouter merchantId seulement s'il est défini et non vide
+    // Ajouter merchantId seulement s'il est défini et non vide (uniquement pour les collectes)
     if (type === 'collecte' && merchantId && merchantId.trim() !== '') {
       eventData.merchantId = merchantId;
     }
@@ -164,20 +162,18 @@ const updateEvent = async (req, res) => {
       type,
       description,
       location,
-      expectedVolunteers: type === 'collecte' ? expectedVolunteers : undefined,
-      duration: type === 'marché' ? duration : undefined,
-      numberOfStands: type === 'marché' ? numberOfStands : undefined,
+      expectedVolunteers, // Utilisé pour tous les types d'événements
       volunteers,
     };
     
-    // Ajouter merchantId seulement s'il est défini et non vide
+    // Ajouter merchantId seulement s'il est défini et non vide (uniquement pour les collectes)
     if (type === 'collecte' && merchantId && merchantId.trim() !== '') {
       updateData.merchantId = merchantId;
     } else if (type === 'collecte') {
       // Si le type est collecte mais merchantId est vide, définir à null explicitement
       updateData.merchantId = null;
     } else {
-      // Si le type n'est pas collecte, définir à undefined pour le supprimer
+      // Si le type est marché, définir à undefined pour le supprimer
       updateData.merchantId = undefined;
     }
     
@@ -235,10 +231,109 @@ const deleteEvent = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Inscrire un bénévole à un événement
+ * @route   POST /api/events/:id/register
+ * @access  Privé
+ */
+const registerForEvent = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        message: 'Événement non trouvé',
+      });
+    }
+
+    // Vérifier si l'utilisateur est déjà inscrit
+    if (event.volunteers.includes(req.user._id)) {
+      return res.status(400).json({
+        message: 'Vous êtes déjà inscrit à cet événement',
+      });
+    }
+
+    // Vérifier si l'événement est complet
+    if (event.volunteers.length >= event.expectedVolunteers) {
+      return res.status(400).json({
+        message: 'Cet événement est complet',
+      });
+    }
+
+    // Ajouter l'utilisateur aux bénévoles de l'événement
+    event.volunteers.push(req.user._id);
+    await event.save();
+
+    // Récupérer l'événement mis à jour avec les informations des bénévoles
+    const updatedEvent = await Event.findById(req.params.id)
+      .populate('merchantId', 'name businessName')
+      .populate('volunteers', 'name email');
+
+    res.status(200).json({
+      message: 'Inscription réussie',
+      data: updatedEvent,
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'inscription à l\'événement:', error);
+    res.status(500).json({
+      message: 'Erreur lors de l\'inscription à l\'événement',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Désinscrire un bénévole d'un événement
+ * @route   POST /api/events/:id/unregister
+ * @access  Privé
+ */
+const unregisterFromEvent = async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        message: 'Événement non trouvé',
+      });
+    }
+
+    // Vérifier si l'utilisateur est inscrit
+    if (!event.volunteers.includes(req.user._id)) {
+      return res.status(400).json({
+        message: 'Vous n\'êtes pas inscrit à cet événement',
+      });
+    }
+
+    // Retirer l'utilisateur des bénévoles de l'événement
+    event.volunteers = event.volunteers.filter(
+      (volunteerId) => volunteerId.toString() !== req.user._id.toString()
+    );
+    await event.save();
+
+    // Récupérer l'événement mis à jour avec les informations des bénévoles
+    const updatedEvent = await Event.findById(req.params.id)
+      .populate('merchantId', 'name businessName')
+      .populate('volunteers', 'name email');
+
+    res.status(200).json({
+      message: 'Désinscription réussie',
+      data: updatedEvent,
+    });
+  } catch (error) {
+    console.error('Erreur lors de la désinscription de l\'événement:', error);
+    res.status(500).json({
+      message: 'Erreur lors de la désinscription de l\'événement',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createEvent,
   getEvents,
   getEventById,
   updateEvent,
   deleteEvent,
+  registerForEvent,
+  unregisterFromEvent,
 };

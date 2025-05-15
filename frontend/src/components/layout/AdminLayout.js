@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../Sidebar';
+import Header from './Header';
+import { useAuth } from '../../context/AuthContext';
 
 // Helper function to safely access localStorage
 const getLocalStorage = () => {
@@ -12,26 +14,31 @@ const getLocalStorage = () => {
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
+  const { user, isAdmin } = useAuth();
   
-  // Vérification simple de l'authentification admin (à améliorer avec un vrai système d'auth)
+  // Vérification de l'authentification admin
   useEffect(() => {
-    // Ici, vous pourriez vérifier si l'utilisateur est connecté et a le rôle admin
-    // Si ce n'est pas le cas, rediriger vers la page de connexion
-    const storage = getLocalStorage();
-    const isAdmin = storage ? storage.getItem('userRole') === 'admin' : false;
-    if (!isAdmin) {
-      // Commenté pour le développement, à décommenter en production
-      // router.push('/login');
+    // Vérifier si l'utilisateur est connecté et a le rôle admin
+    if (user && !isAdmin) {
+      router.push('/login');
     }
-  }, [router]);
+  }, [user, isAdmin, router]);
 
   return (
-    <div className="flex flex-1">
-      <Sidebar />
-      <div className="admin-content flex-grow transition-all duration-300">
-        <main className="p-6">
-          {children}
-        </main>
+    <div className="flex flex-col min-h-screen">
+      {/* Header en haut de la page */}
+      <Header />
+      
+      <div className="flex flex-1">
+        {/* Sidebar à gauche */}
+        <Sidebar />
+        
+        {/* Contenu principal */}
+        <div className="admin-content flex-grow ml-64 transition-all duration-300 pt-16">
+          <main className="p-6">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

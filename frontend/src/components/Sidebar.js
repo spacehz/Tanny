@@ -27,11 +27,6 @@ const CollectionsIcon = () => (
   </svg>
 );
 
-const CalendarIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-  </svg>
-);
 
 const SettingsIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -71,11 +66,7 @@ export default function Sidebar() {
       icon: <CollectionsIcon />,
       path: '/admin-collections',
     },
-    {
-      name: 'Calendrier',
-      icon: <CalendarIcon />,
-      path: '/admin-calendar',
-    },
+
     {
       name: 'Paramètres',
       icon: <SettingsIcon />,
@@ -85,7 +76,7 @@ export default function Sidebar() {
 
   return (
     <div 
-      className={`admin-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-screen fixed left-0 top-0 z-10 transition-all duration-300`}
+      className={`admin-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-screen fixed left-0 top-16 z-10 transition-all duration-300`}
     >
       <div className="flex justify-between items-center p-4 border-b border-primary-600">
         <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>

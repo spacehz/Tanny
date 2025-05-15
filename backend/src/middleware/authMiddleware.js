@@ -5,36 +5,72 @@ const User = require('../models/User');
 exports.protect = async (req, res, next) => {
   let token;
 
-  // Vérifier si le token est présent dans les headers
-  if (
+  // Vérifier si le token est présent dans les cookies
+  if (req.cookies.token) {
+    token = req.cookies.token;
+  } 
+  // Vérifier si le token est présent dans les headers (pour la compatibilité)
+  else if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
-    try {
-      // Extraire le token du header
-      token = req.headers.authorization.split(' ')[1];
-
-      // Vérifier le token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_dev_key');
-
-      // Ajouter l'utilisateur à la requête
-      req.user = await User.findById(decoded.id).select('-password');
-
-      next();
-    } catch (error) {
-      console.error(error);
-      res.status(401).json({ message: 'Non autorisé, token invalide' });
-    }
+    token = req.headers.authorization.split(' ')[1];
   }
 
   if (!token) {
-    res.status(401).json({ message: 'Non autorisé, pas de token' });
+    return res.status(401).json({ message: 'Non autorisé, pas de token' });
   }
+
+  try {
+    // Vérifier le token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_dev_key');
+
+    // Ajouter l'utilisateur à la requête
+    req.user = await User.findById(decoded.id).select('-password');
+
+    next();
+  } catch (error) {
+    console.error('Erreur d\'authentification:', error);
+    
+    // Si le token est expiré, essayer de le rafraîchir automatiquement
+    if (error.name === 'TokenExpiredError' && req.cookies.refreshToken) {
+      return res.status(401).json({ 
+        message: 'Token expiré', 
+        tokenExpired: true 
+      });
+    }
+    
+    res.status(401).json({ message: 'Non autorisé, token invalide' });
+  }
+};
+
+// Constantes pour les rôles
+const ROLES = {
+  ADMIN: 'admin',
+  VOLUNTEER: 'bénévole',
+  MERCHANT: 'commercant'
+};
+
+// Fonction pour normaliser un rôle
+const normalizeRole = (role) => {
+  if (!role) return null;
+  
+  const roleLower = role.toLowerCase();
+  
+  if (roleLower === 'admin') {
+    return ROLES.ADMIN;
+  } else if (roleLower === 'volunteer' || roleLower === 'bénévole') {
+    return ROLES.VOLUNTEER;
+  } else if (roleLower === 'merchant' || roleLower === 'commercant' || roleLower === 'commerçant') {
+    return ROLES.MERCHANT;
+  }
+  
+  return roleLower;
 };
 
 // Middleware pour les routes d'administration
 exports.admin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  if (req.user && normalizeRole(req.user.role) === ROLES.ADMIN) {
     next();
   } else {
     res.status(403).json({ message: 'Non autorisé, accès administrateur requis' });
@@ -43,7 +79,8 @@ exports.admin = (req, res, next) => {
 
 // Middleware pour les routes de marchands
 exports.merchant = (req, res, next) => {
-  if (req.user && (req.user.role === 'merchant' || req.user.role === 'admin')) {
+  const normalizedRole = normalizeRole(req.user?.role);
+  if (req.user && (normalizedRole === ROLES.MERCHANT || normalizedRole === ROLES.ADMIN)) {
     next();
   } else {
     res.status(403).json({ message: 'Non autorisé, accès marchand requis' });
@@ -52,7 +89,8 @@ exports.merchant = (req, res, next) => {
 
 // Middleware pour les routes de bénévoles
 exports.volunteer = (req, res, next) => {
-  if (req.user && (req.user.role === 'bénévole' || req.user.role === 'admin')) {
+  const normalizedRole = normalizeRole(req.user?.role);
+  if (req.user && (normalizedRole === ROLES.VOLUNTEER || normalizedRole === ROLES.ADMIN)) {
     next();
   } else {
     res.status(403).json({ message: 'Non autorisé, accès bénévole requis' });

@@ -42,8 +42,50 @@ const createMerchant = asyncHandler(async (req, res) => {
 // @route   GET /api/merchants
 // @access  Private/Admin
 const getMerchants = asyncHandler(async (req, res) => {
-  const merchants = await Merchant.find({});
-  res.json(merchants);
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const search = req.query.search || '';
+    const isActive = req.query.isActive !== undefined ? 
+      req.query.isActive === 'true' : null;
+    
+    // Construire le filtre de recherche
+    let filter = {};
+    
+    // Ajouter la recherche si présente
+    if (search) {
+      filter.$or = [
+        { businessName: { $regex: search, $options: 'i' } },
+        { 'legalRepresentative.firstName': { $regex: search, $options: 'i' } },
+        { 'legalRepresentative.lastName': { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { siret: { $regex: search, $options: 'i' } },
+      ];
+    }
+    
+    // Ajouter le filtre de statut si présent
+    if (isActive !== null) {
+      filter.isActive = isActive;
+    }
+    
+    const merchants = await Merchant.find(filter)
+      .skip(skip)
+      .limit(limit);
+    
+    const total = await Merchant.countDocuments(filter);
+    
+    res.json({
+      merchants,
+      page,
+      pages: Math.ceil(total / limit),
+      total
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des commerçants:', error);
+    res.status(500);
+    throw new Error('Erreur serveur');
+  }
 });
 
 // @desc    Obtenir un commerçant par ID

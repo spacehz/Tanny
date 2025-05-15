@@ -69,3 +69,31 @@ export const deleteEvent = async (id) => {
     throw error;
   }
 };
+
+/**
+ * Inscrit un bénévole à un événement
+ * @param {string} eventId - ID de l'événement
+ * @returns {Promise} Promesse contenant les données de l'événement mis à jour
+ */
+export const registerForEvent = async (eventId) => {
+  try {
+    const response = await api.post(`/api/events/${eventId}/register`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Désinscrit un bénévole d'un événement
+ * @param {string} eventId - ID de l'événement
+ * @returns {Promise} Promesse contenant les données de l'événement mis à jour
+ */
+export const unregisterFromEvent = async (eventId) => {
+  try {
+    const response = await api.post(`/api/events/${eventId}/unregister`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
