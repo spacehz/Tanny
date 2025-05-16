@@ -19,10 +19,13 @@ function MyApp({ Component, pageProps }) {
   // Vérifier si la page actuelle est la page de connexion
   const isLoginPage = router.pathname === '/login';
   
+  // Vérifier si la page actuelle est la page d'accueil (index)
+  const isIndexPage = router.pathname === '/';
+  
   // Si la page a un layout personnalisé, l'utiliser, sinon utiliser le layout par défaut
   const getLayout = () => {
-    // Les pages bénévoles, admin et login gèrent leur propre layout
-    if (isVolunteerPage || isAdminPage || isLoginPage) {
+    // Les pages bénévoles, admin, login et index gèrent leur propre layout
+    if (isVolunteerPage || isAdminPage || isLoginPage || isIndexPage) {
       return <Component {...pageProps} />;
     }
     

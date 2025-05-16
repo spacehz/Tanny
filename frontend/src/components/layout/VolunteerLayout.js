@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import VolunteerSidebar from '../VolunteerSidebar';
 import Header from './Header';
+import Footer from './Footer';
 
 export default function VolunteerLayout({ children }) {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function VolunteerLayout({ children }) {
           </main>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

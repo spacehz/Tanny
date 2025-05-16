@@ -238,16 +238,29 @@ const deleteEvent = async (req, res) => {
  */
 const registerForEvent = async (req, res) => {
   try {
+    console.log(`[DEBUG] Début de l'inscription à l'événement ${req.params.id} pour l'utilisateur ${req.user._id}`);
+    
     const event = await Event.findById(req.params.id);
 
     if (!event) {
+      console.log(`[DEBUG] Événement ${req.params.id} non trouvé`);
       return res.status(404).json({
         message: 'Événement non trouvé',
       });
     }
 
+    console.log(`[DEBUG] Événement trouvé: ${event.title}`);
+    console.log(`[DEBUG] Nombre de bénévoles avant inscription: ${event.volunteers.length}`);
+    console.log(`[DEBUG] Nombre de places attendues: ${event.expectedVolunteers}`);
+    console.log(`[DEBUG] Liste des bénévoles avant inscription:`, event.volunteers);
+
     // Vérifier si l'utilisateur est déjà inscrit
-    if (event.volunteers.includes(req.user._id)) {
+    const isUserRegistered = event.volunteers.some(id => 
+      id.toString() === req.user._id.toString()
+    );
+    
+    if (isUserRegistered) {
+      console.log(`[DEBUG] L'utilisateur ${req.user._id} est déjà inscrit à l'événement ${req.params.id}`);
       return res.status(400).json({
         message: 'Vous êtes déjà inscrit à cet événement',
       });
@@ -255,6 +268,7 @@ const registerForEvent = async (req, res) => {
 
     // Vérifier si l'événement est complet
     if (event.volunteers.length >= event.expectedVolunteers) {
+      console.log(`[DEBUG] L'événement ${req.params.id} est complet (${event.volunteers.length}/${event.expectedVolunteers})`);
       return res.status(400).json({
         message: 'Cet événement est complet',
       });
@@ -262,13 +276,20 @@ const registerForEvent = async (req, res) => {
 
     // Ajouter l'utilisateur aux bénévoles de l'événement
     event.volunteers.push(req.user._id);
+    console.log(`[DEBUG] Utilisateur ${req.user._id} ajouté à la liste des bénévoles`);
+    console.log(`[DEBUG] Nombre de bénévoles après ajout: ${event.volunteers.length}`);
+    
     await event.save();
+    console.log(`[DEBUG] Événement sauvegardé avec succès`);
 
     // Récupérer l'événement mis à jour avec les informations des bénévoles
     const updatedEvent = await Event.findById(req.params.id)
       .populate('merchantId', 'name businessName')
       .populate('volunteers', 'name email');
 
+    console.log(`[DEBUG] Événement récupéré après sauvegarde`);
+    console.log(`[DEBUG] Nombre final de bénévoles: ${updatedEvent.volunteers.length}`);
+    
     res.status(200).json({
       message: 'Inscription réussie',
       data: updatedEvent,

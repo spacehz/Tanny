@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from '../components/AuthModal';
+import IndexLayout from '../components/layout/IndexLayout';
 
 export default function Home() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -60,7 +61,7 @@ export default function Home() {
   ];
 
   return (
-    <>
+    <IndexLayout>
       <Head>
         <title>TANY - Association de Glanage Alimentaire</title>
         <meta name="description" content="Application web pour l'association de glanage alimentaire TANY" />
@@ -195,6 +196,6 @@ export default function Home() {
         onClose={() => setIsAuthModalOpen(false)} 
         requiredRole={requiredRole}
       />
-    </>
+    </IndexLayout>
   );
 }

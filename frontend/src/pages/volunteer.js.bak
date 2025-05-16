@@ -975,7 +975,12 @@ export default function VolunteerPage() {
             // Retourner les données actuelles sans modification
             return currentData;
           }
-        });
+              
+              // Mettre à jour les données avec les modifications
+              mutate({ ...newData, data: updatedEvents }, false);
+              
+              // Forcer une mise à jour des événements formatés pour refléter les changements
+              const formattedEvents = updatedEvents.map(event => {
                 // Calculer le nombre de places disponibles
                 const totalVolunteersNeeded = event.ExpectedVolunteers || event.expectedVolunteers || 5;
                 
