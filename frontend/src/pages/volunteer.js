@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Head from 'next/head';
 import VolunteerLayout from '../components/layout/VolunteerLayout';
@@ -154,9 +154,63 @@ export default function VolunteerPage() {
 
   // Fonction pour gérer le clic sur un événement
   const handleEventClick = (clickInfo) => {
-    // Stocker l'événement sélectionné et ouvrir le modal
-    setSelectedEvent(clickInfo.event);
-    setIsEventModalOpen(true);
+    try {
+      console.log("Événement cliqué:", clickInfo.event);
+      
+      // Créer une copie simplifiée de l'événement pour éviter les références circulaires
+      const eventData = {
+        id: clickInfo.event.id,
+        title: clickInfo.event.title,
+        start: clickInfo.event.start,
+        end: clickInfo.event.end,
+        extendedProps: { ...clickInfo.event.extendedProps }
+      };
+      
+      // Stocker l'événement sélectionné et ouvrir le modal
+      setSelectedEvent(eventData);
+      setIsEventModalOpen(true);
+    } catch (error) {
+      console.error("Erreur lors de l'ouverture du modal:", error);
+      notify.error("Une erreur est survenue lors de l'ouverture des détails de l'événement");
+    }
+  };
+  
+  // Effet pour gérer le verrouillage/déverrouillage du scroll du document
+  useEffect(() => {
+    if (isEventModalOpen) {
+      // Verrouiller le scroll du document quand le modal est ouvert
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Déverrouiller le scroll du document quand le modal est fermé
+      document.body.style.overflow = 'auto';
+      document.body.style.paddingRight = '0';
+    }
+    
+    // Nettoyer l'effet lors du démontage du composant
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.body.style.paddingRight = '0';
+    };
+  }, [isEventModalOpen]);
+  
+  // Fonction pour fermer le modal de détails d'événement
+  const handleCloseEventModal = () => {
+    try {
+      // Restaurer le défilement du document
+      document.body.style.overflow = 'auto';
+      document.body.style.paddingRight = '0';
+      
+      // Fermer le modal
+      setIsEventModalOpen(false);
+      
+      // Réinitialiser l'événement sélectionné immédiatement
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error("Erreur lors de la fermeture du modal:", error);
+      // En cas d'erreur, s'assurer que le document est déverrouillé
+      document.body.style.overflow = 'auto';
+      document.body.style.paddingRight = '0';
+    }
   };
 
   // Fonction pour s'inscrire à un événement
@@ -382,11 +436,13 @@ export default function VolunteerPage() {
       </div>
       
       {/* Modal de détails d'événement */}
-      <EventDetailsModal
-        isOpen={isEventModalOpen}
-        onClose={() => setIsEventModalOpen(false)}
-        event={selectedEvent}
-      />
+      {selectedEvent && (
+        <EventDetailsModal
+          isOpen={isEventModalOpen}
+          onClose={handleCloseEventModal}
+          event={selectedEvent}
+        />
+      )}
     </VolunteerLayout>
   );
 }

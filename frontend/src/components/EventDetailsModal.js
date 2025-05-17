@@ -146,29 +146,7 @@ const EventDetailsModal = ({ isOpen, onClose, event }) => {
           </div>
         </div>
 
-        {/* Ligne de séparation */}
-        <div className="border-t border-gray-200"></div>
-
-        {/* Actions */}
-        <div className="flex justify-end space-x-3 sticky bottom-0 bg-white py-2 border-t border-gray-200 mt-4">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-          >
-            Fermer
-          </button>
-          <button
-            className={`px-4 py-2 rounded-md transition-colors ${
-              isFullyBooked 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-primary-600 hover:bg-primary-700 text-white'
-            }`}
-            style={!isFullyBooked ? { backgroundColor: eventColor } : {}}
-            disabled={isFullyBooked}
-          >
-            {isFullyBooked ? 'Complet' : 'S\'inscrire'}
-          </button>
-        </div>
+        {/* Pas de boutons d'action - supprimés car inutiles */}
       </div>
     </Modal>
   );
