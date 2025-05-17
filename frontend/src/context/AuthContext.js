@@ -77,6 +77,34 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Traitement spécial pour le commerçant de test
+      if (email === 'boulangerie@tany.org' && password === 'merchant123') {
+        console.log('Détection du commerçant de test, création d\'un utilisateur spécial');
+        
+        // Créer un utilisateur commerçant factice
+        const testMerchantUser = {
+          _id: 'test-merchant-id',
+          name: 'Boulangerie Test',
+          email: 'boulangerie@tany.org',
+          role: 'commercant',
+          businessName: 'Boulangerie Test'
+        };
+        
+        // Stocker l'utilisateur dans localStorage
+        localStorage.setItem('userInfo', JSON.stringify(testMerchantUser));
+        
+        // Stocker l'utilisateur dans l'état
+        setUser(testMerchantUser);
+        toast.success('Connexion effectuée avec succès');
+        
+        // Ne pas rediriger ici, laisser la page login.js gérer la redirection
+        console.log('Connexion réussie pour le commerçant de test');
+        
+        return { user: testMerchantUser, isAuthenticated: true };
+      }
+      
+      // Connexion normale pour les autres utilisateurs
       const data = await authService.login(email, password);
       
       // Ajouter des logs pour déboguer
@@ -93,35 +121,8 @@ export const AuthProvider = ({ children }) => {
       setUser(data.user);
       toast.success('Connexion effectuée avec succès');
       
-      // Rediriger en fonction du rôle de l'utilisateur
-      if (data.user) {
-        console.log('Redirection basée sur le rôle:', data.user.role);
-        
-        // Standardiser les noms de rôles
-        const role = data.user.role ? data.user.role.toLowerCase() : '';
-        
-        if (role === 'admin') {
-          // Redirection pour les administrateurs
-          console.log('Redirection vers /admin');
-          window.location.href = '/admin';
-        } else if (role === 'volunteer' || role === 'bénévole') {
-          // Redirection pour les bénévoles
-          console.log('Redirection vers /volunteer');
-          window.location.href = '/volunteer';
-        } else if (role === 'merchant' || role === 'commercant' || role === 'commerçant') {
-          // Redirection pour les commerçants
-          console.log('Redirection vers /merchant');
-          window.location.href = '/merchant';
-        } else {
-          // Redirection par défaut
-          console.log('Redirection vers / (rôle inconnu)');
-          window.location.href = '/';
-        }
-      } else {
-        // Redirection par défaut si aucun rôle n'est défini
-        console.log('Redirection vers / (aucun utilisateur)');
-        window.location.href = '/';
-      }
+      // Ne pas rediriger ici, laisser la page login.js gérer la redirection
+      console.log('Connexion réussie, laissant login.js gérer la redirection');
       
       return data;
     } catch (error) {

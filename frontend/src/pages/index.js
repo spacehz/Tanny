@@ -9,13 +9,19 @@ export default function Home() {
   
   // Fonction pour gérer le clic sur les boutons d'accès
   const handleAccessClick = (role, linkUrl) => {
-    // Si l'utilisateur est déjà connecté et a le bon rôle, rediriger directement
+    // Si l'utilisateur est déjà connecté, vérifier son rôle
     if (user) {
-      if (role === 'admin' && user.role === 'admin') {
-        router.push(linkUrl);
-      } else if (role === 'volunteer' && (user.role === 'volunteer' || user.role === 'bénévole' || user.role === 'admin')) {
-        router.push(linkUrl);
-      } else if (role === 'merchant' && (user.role === 'merchant' || user.role === 'commerçant' || user.role === 'admin')) {
+      // Normaliser le rôle de l'utilisateur pour faciliter les comparaisons
+      const userRole = user.role ? user.role.toLowerCase() : '';
+      const isUserAdmin = userRole === 'admin';
+      const isUserVolunteer = userRole === 'volunteer' || userRole === 'bénévole' || isUserAdmin;
+      const isUserMerchant = userRole === 'merchant' || userRole === 'commercant' || userRole === 'commerçant' || isUserAdmin;
+      
+      // Vérifier si l'utilisateur a le bon rôle pour accéder à l'espace demandé
+      if ((role === 'admin' && isUserAdmin) || 
+          (role === 'volunteer' && isUserVolunteer) || 
+          (role === 'merchant' && isUserMerchant)) {
+        // L'utilisateur a le bon rôle, rediriger directement
         router.push(linkUrl);
       } else {
         // L'utilisateur est connecté mais n'a pas le bon rôle
@@ -23,6 +29,7 @@ export default function Home() {
       }
     } else {
       // L'utilisateur n'est pas connecté, rediriger vers la page de login avec le rôle requis
+      console.log(`Redirection vers login avec role=${role} et redirect=${linkUrl}`);
       router.push(`/login?role=${role}&redirect=${encodeURIComponent(linkUrl)}`);
     }
   };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
@@ -40,6 +40,18 @@ const MenuIcon = () => (
 );
 
 export default function MerchantSidebar() {
+  // État pour suivre si le composant est monté
+  const [mounted, setMounted] = useState(false);
+  
+  // Effet pour s'assurer que le composant est correctement monté côté client
+  useEffect(() => {
+    setMounted(true);
+    console.log('MerchantSidebar mounted');
+    return () => {
+      console.log('MerchantSidebar unmounted');
+      setMounted(false);
+    };
+  }, []);
   const [collapsed, setCollapsed] = useState(false);
   const router = useRouter();
 
@@ -73,8 +85,7 @@ export default function MerchantSidebar() {
 
   return (
     <div 
-      className={`merchant-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-screen fixed left-0 top-16 z-10 transition-all duration-300`}
-      style={{ width: collapsed ? '64px' : '256px' }}
+      className={`merchant-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-full min-h-screen fixed left-0 top-0 pt-16 transition-all duration-300 w-64`}
     >
       <div className="flex justify-between items-center p-4 border-b border-primary-600">
         <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>

@@ -45,15 +45,24 @@ const Login = () => {
       
       // Redirection explicite après connexion réussie
       if (data && data.user) {
+        // Normaliser le rôle de l'utilisateur pour faciliter les comparaisons
+        const userRole = data.user.role ? data.user.role.toLowerCase() : '';
+        const isUserAdmin = userRole === 'admin';
+        const isUserVolunteer = userRole === 'volunteer' || userRole === 'bénévole' || isUserAdmin;
+        const isUserMerchant = userRole === 'merchant' || userRole === 'commercant' || userRole === 'commerçant' || isUserAdmin;
+        
+        console.log('Redirection après connexion:');
+        console.log('- Rôle requis:', requiredRole);
+        console.log('- Rôle utilisateur:', userRole);
+        console.log('- URL de redirection:', redirectUrl);
+        
         // Si un rôle spécifique était requis, vérifier les droits d'accès
         if (requiredRole) {
-          if (requiredRole === 'admin' && data.user.role === 'admin') {
+          if (requiredRole === 'admin' && isUserAdmin) {
             router.push(redirectUrl || '/admin');
-          } else if (requiredRole === 'volunteer' && 
-                    (data.user.role === 'volunteer' || data.user.role === 'bénévole' || data.user.role === 'admin')) {
+          } else if (requiredRole === 'volunteer' && isUserVolunteer) {
             router.push(redirectUrl || '/volunteer');
-          } else if (requiredRole === 'merchant' && 
-                    (data.user.role === 'merchant' || data.user.role === 'commerçant' || data.user.role === 'admin')) {
+          } else if (requiredRole === 'merchant' && isUserMerchant) {
             router.push(redirectUrl || '/merchant');
           } else {
             // L'utilisateur est connecté mais n'a pas le bon rôle
@@ -62,8 +71,12 @@ const Login = () => {
           }
         } else {
           // Pas de rôle spécifique requis, redirection standard
-          if (data.user.role === 'admin') {
+          if (isUserAdmin) {
             router.push('/admin');
+          } else if (isUserMerchant) {
+            router.push('/merchant');
+          } else if (isUserVolunteer) {
+            router.push('/volunteer');
           } else if (redirectUrl && redirectUrl !== '/') {
             router.push(redirectUrl);
           } else {

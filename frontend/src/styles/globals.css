@@ -109,24 +109,42 @@
     @apply mt-1 text-sm text-red-600;
   }
   
-  /* Styles pour la sidebar admin */
-  .admin-sidebar {
-    width: 250px;
-    transition: width 0.3s ease;
+  /* Styles pour les sidebars */
+  .admin-sidebar,
+  .merchant-sidebar {
+    width: 256px;
+    transition: width 0.3s ease, transform 0.3s ease;
+    z-index: 10;
+    height: 100vh; /* Assure que la sidebar prend toute la hauteur de la fenêtre */
+    position: fixed;
+    left: 0;
+    top: 0;
+    padding-top: 4rem; /* Pour laisser de l'espace pour le header */
   }
   
-  .admin-sidebar.collapsed {
-    width: 70px;
+  .admin-sidebar.collapsed,
+  .merchant-sidebar.collapsed {
+    width: 64px;
   }
   
-  .admin-content {
-    margin-left: 250px;
-    transition: margin-left 0.3s ease;
+  @media (max-width: 768px) {
+    .admin-sidebar,
+    .merchant-sidebar {
+      display: none;
+    }
   }
   
-  .admin-sidebar.collapsed + .admin-content,
-  .admin-sidebar.collapsed ~ .admin-content {
-    margin-left: 70px;
+  /* Styles pour le contenu principal */
+  .main-content {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+  
+  @media (min-width: 768px) {
+    .main-content {
+      padding: 0 2rem;
+    }
   }
   
   /* Styles pour FullCalendar */

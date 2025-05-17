@@ -76,7 +76,7 @@ export default function Sidebar() {
 
   return (
     <div 
-      className={`admin-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-screen fixed left-0 top-16 z-10 transition-all duration-300`}
+      className={`admin-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-full min-h-screen fixed left-0 top-0 pt-16 transition-all duration-300 w-64`}
     >
       <div className="flex justify-between items-center p-4 border-b border-primary-600">
         <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>

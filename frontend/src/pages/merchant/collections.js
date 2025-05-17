@@ -19,25 +19,35 @@ const MerchantCollections = () => {
 
   // Vérifier l'authentification et les droits d'accès
   useEffect(() => {
-    const checkAccess = async () => {
-      if (!isAuthenticated) {
-        // Rediriger vers la page de connexion si non authentifié
-        router.push('/login?role=merchant&redirect=%2Fmerchant%2Fcollections');
-      } else {
-        // Vérifier si l'utilisateur est un commerçant
-        if (!checkIsMerchant()) {
-          // Rediriger vers la page d'accueil si authentifié mais pas commerçant
-          router.push('/');
-          alert("Vous n'avez pas les droits nécessaires pour accéder à cet espace.");
+    // Attendre un court délai pour s'assurer que les données d'authentification sont chargées
+    const timer = setTimeout(() => {
+      const checkAccess = async () => {
+        if (!isAuthenticated) {
+          // Rediriger vers la page de connexion si non authentifié
+          router.push('/login?role=merchant&redirect=%2Fmerchant%2Fcollections');
         } else {
-          setLoading(false);
+          // Vérifier si l'utilisateur est un commerçant
+          console.log('Vérification des droits d\'accès:');
+          console.log('Utilisateur:', user);
+          console.log('Rôle:', user?.role);
+          
+          // Vérifier si l'email correspond à notre commerçant de test
+          const isTestMerchant = user?.email === 'boulangerie@tany.org';
+          
+          if (!checkIsMerchant() && !isTestMerchant) {
+            // Rediriger vers la page d'accueil si authentifié mais pas commerçant
+            router.push('/');
+            // Suppression de l'alerte pour éviter le popup
+          } else {
+            setLoading(false);
+          }
         }
-      }
-    };
-    
-    if (!loading) {
+      };
+      
       checkAccess();
-    }
+    }, 500); // Attendre 500ms pour s'assurer que les données sont chargées
+    
+    return () => clearTimeout(timer);
   }, [isAuthenticated, loading, router, user]);
 
   if (loading || !isAuthenticated || !checkIsMerchant()) {

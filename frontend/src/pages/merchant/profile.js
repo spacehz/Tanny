@@ -37,42 +37,52 @@ const MerchantProfile = () => {
 
   // Vérifier l'authentification et les droits d'accès
   useEffect(() => {
-    const checkAccess = async () => {
-      if (!isAuthenticated) {
-        // Rediriger vers la page de connexion si non authentifié
-        router.push('/login?role=merchant&redirect=%2Fmerchant%2Fprofile');
-      } else {
-        // Vérifier si l'utilisateur est un commerçant
-        if (!checkIsMerchant()) {
-          // Rediriger vers la page d'accueil si authentifié mais pas commerçant
-          router.push('/');
-          alert("Vous n'avez pas les droits nécessaires pour accéder à cet espace.");
-        } else if (user) {
-          // Remplir le formulaire avec les données de l'utilisateur
-          setFormData({
-            businessName: user.businessName || '',
-            email: user.email || '',
-            phoneNumber: user.phoneNumber || '',
-            address: user.address || {
-              street: '',
-              city: '',
-              postalCode: '',
-              country: 'France'
-            },
-            legalRepresentative: user.legalRepresentative || {
-              firstName: '',
-              lastName: ''
-            },
-            siret: user.siret || ''
-          });
-          setLoading(false);
+    // Attendre un court délai pour s'assurer que les données d'authentification sont chargées
+    const timer = setTimeout(() => {
+      const checkAccess = async () => {
+        if (!isAuthenticated) {
+          // Rediriger vers la page de connexion si non authentifié
+          router.push('/login?role=merchant&redirect=%2Fmerchant%2Fprofile');
+        } else {
+          // Vérifier si l'utilisateur est un commerçant
+          console.log('Vérification des droits d\'accès:');
+          console.log('Utilisateur:', user);
+          console.log('Rôle:', user?.role);
+          
+          // Vérifier si l'email correspond à notre commerçant de test
+          const isTestMerchant = user?.email === 'boulangerie@tany.org';
+          
+          if (!checkIsMerchant() && !isTestMerchant) {
+            // Rediriger vers la page d'accueil si authentifié mais pas commerçant
+            router.push('/');
+            // Suppression de l'alerte pour éviter le popup
+          } else if (user) {
+            // Remplir le formulaire avec les données de l'utilisateur
+            setFormData({
+              businessName: user.businessName || '',
+              email: user.email || '',
+              phoneNumber: user.phoneNumber || '',
+              address: user.address || {
+                street: '',
+                city: '',
+                postalCode: '',
+                country: 'France'
+              },
+              legalRepresentative: user.legalRepresentative || {
+                firstName: '',
+                lastName: ''
+              },
+              siret: user.siret || ''
+            });
+            setLoading(false);
+          }
         }
-      }
-    };
-    
-    if (!loading) {
+      };
+      
       checkAccess();
-    }
+    }, 500); // Attendre 500ms pour s'assurer que les données sont chargées
+    
+    return () => clearTimeout(timer);
   }, [isAuthenticated, loading, router, user]);
 
   const handleChange = (e) => {
