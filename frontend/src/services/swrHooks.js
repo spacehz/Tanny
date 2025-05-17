@@ -152,10 +152,9 @@ export const useCollection = (id) => {
  * @param {number} limit - Number of items per page
  * @param {string} search - Search term
  * @param {string} availability - Filter by availability
- * @param {boolean|null} isActive - Filter by active status (true, false, or null for all)
  * @returns {Object} SWR response with data, error, isLoading, and mutate
  */
-export const useVolunteers = (page = 1, limit = 10, search = '', availability = '', isActive = null) => {
+export const useVolunteers = (page = 1, limit = 10, search = '', availability = '') => {
   let url = `/api/users/volunteers?page=${page}&limit=${limit}`;
   
   if (search) {
@@ -166,9 +165,7 @@ export const useVolunteers = (page = 1, limit = 10, search = '', availability = 
     url += `&availability=${encodeURIComponent(availability)}`;
   }
   
-  if (isActive !== null) {
-    url += `&isActive=${isActive}`;
-  }
+  // Le filtre isActive a été supprimé car l'attribut n'est plus utilisé
   
   const { data, error, isLoading, mutate } = useSWR(url, fetcher);
   

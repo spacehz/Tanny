@@ -1,344 +1,331 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Flex,
-  IconButton,
-  Input,
-  Select,
-  Table,
-  Tbody,
-  Td,
-  Text,
-  Th,
-  Thead,
-  Tr,
-  useColorModeValue,
-  useToast,
-} from '@chakra-ui/react';
-import { FiSearch, FiDownload, FiTrash2, FiEdit } from 'react-icons/fi';
-import { useEvents } from '../services/swrHooks';
-import { deleteEvent } from '../services/eventService';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
-const EventsTable = ({ onEdit }) => {
-  const { data, error, isLoading, mutate } = useEvents();
-  const events = data?.data || [];
-  const [searchTerm, setSearchTerm] = useState('');
+const EventsTable = ({ events, onEdit, onDelete, itemsPerPage = 5 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
   const [filteredEvents, setFilteredEvents] = useState([]);
-  const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'ascending' });
-  const toast = useToast();
+  const [filters, setFilters] = useState({
+    title: '',
+    type: '',
+    location: '',
+    startDate: '',
+    endDate: ''
+  });
 
-  // Colors
-  const textColor = useColorModeValue('gray.700', 'white');
-  const borderColor = useColorModeValue('gray.200', 'gray.600');
-
+  // Appliquer les filtres aux événements
   useEffect(() => {
-    if (events) {
-      let filtered = [...events];
-      
-      // Apply search filter
-      if (searchTerm) {
-        filtered = filtered.filter(
-          (event) =>
-            (event.name || event.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (event.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (event.description || '').toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-      
-      // Apply sorting
-      if (sortConfig.key) {
-        filtered.sort((a, b) => {
-          // Handle name/title field difference
-          if (sortConfig.key === 'name' && (!a.name || !b.name)) {
-            const aValue = a.name || a.title || '';
-            const bValue = b.name || b.title || '';
-            if (aValue < bValue) {
-              return sortConfig.direction === 'ascending' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-              return sortConfig.direction === 'ascending' ? 1 : -1;
-            }
-            return 0;
-          }
-          
-          // Handle date field difference
-          if (sortConfig.key === 'date' && (!a.date || !b.date)) {
-            const aValue = a.date || a.start || '';
-            const bValue = b.date || b.start || '';
-            if (aValue < bValue) {
-              return sortConfig.direction === 'ascending' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-              return sortConfig.direction === 'ascending' ? 1 : -1;
-            }
-            return 0;
-          }
-          
-          // Default sorting
-          if (a[sortConfig.key] < b[sortConfig.key]) {
-            return sortConfig.direction === 'ascending' ? -1 : 1;
-          }
-          if (a[sortConfig.key] > b[sortConfig.key]) {
-            return sortConfig.direction === 'ascending' ? 1 : -1;
-          }
-          return 0;
-        });
-      }
-      
-      setFilteredEvents(filtered);
+    let result = [...events];
+    
+    // Filtre par titre
+    if (filters.title) {
+      result = result.filter(event => 
+        event.title.toLowerCase().includes(filters.title.toLowerCase())
+      );
     }
-  }, [events, searchTerm, sortConfig]);
+    
+    // Filtre par type
+    if (filters.type) {
+      result = result.filter(event => 
+        event.type.toLowerCase() === filters.type.toLowerCase()
+      );
+    }
+    
+    // Filtre par lieu
+    if (filters.location) {
+      result = result.filter(event => 
+        event.location && event.location.toLowerCase().includes(filters.location.toLowerCase())
+      );
+    }
+    
+    // Filtre par date de début
+    if (filters.startDate) {
+      const startDate = new Date(filters.startDate);
+      result = result.filter(event => 
+        new Date(event.start) >= startDate
+      );
+    }
+    
+    // Filtre par date de fin
+    if (filters.endDate) {
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999); // Fin de la journée
+      result = result.filter(event => 
+        new Date(event.end) <= endDate
+      );
+    }
+    
+    setFilteredEvents(result);
+    setCurrentPage(1); // Réinitialiser à la première page après filtrage
+  }, [events, filters]);
 
-  const handleSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
+  // Calculer les événements à afficher pour la page actuelle
+  const indexOfLastEvent = currentPage * itemsPerPage;
+  const indexOfFirstEvent = indexOfLastEvent - itemsPerPage;
+  const currentEvents = filteredEvents.slice(indexOfFirstEvent, indexOfLastEvent);
+  
+  // Calculer le nombre total de pages
+  const totalPages = Math.ceil(filteredEvents.length / itemsPerPage);
+
+  // Gérer le changement de page
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this event?')) {
-      try {
-        await deleteEvent(id);
-        mutate(); // Refresh the data
-        toast({
-          title: 'Event deleted',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      } catch (error) {
-        toast({
-          title: 'Error deleting event',
-          description: error.message,
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-      }
-    }
+  // Gérer le changement de filtre
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(18);
-    doc.text('Events Report', 14, 22);
-    doc.setFontSize(11);
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 30);
-    
-    // Prepare table data
-    const tableColumn = ["Name", "Date", "Location", "Type", "Description"];
-    const tableRows = filteredEvents.map(event => [
-      event.name || event.title,
-      new Date(event.date || event.start).toLocaleDateString(),
-      event.location || '',
-      event.type ? (event.type.toLowerCase() === 'marché' ? 'Marché' : 'Collecte') : (event.status || ''),
-      (event.description || '').substring(0, 30) + (event.description && event.description.length > 30 ? '...' : '')
-    ]);
-    
-    // Generate PDF table
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: 40,
-      styles: {
-        fontSize: 10,
-        cellPadding: 3,
-        overflow: 'linebreak',
-      },
-      columnStyles: {
-        4: { cellWidth: 50 } // Description column width
-      }
-    });
-    
-    // Save the PDF
-    doc.save('events_report.pdf');
-    
-    toast({
-      title: 'PDF exported successfully',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
+  // Réinitialiser tous les filtres
+  const resetFilters = () => {
+    setFilters({
+      title: '',
+      type: '',
+      location: '',
+      startDate: '',
+      endDate: ''
     });
   };
 
-  const exportToExcel = () => {
-    // Prepare data
-    const worksheet = XLSX.utils.json_to_sheet(
-      filteredEvents.map(event => ({
-        Name: event.name || event.title,
-        Date: new Date(event.date || event.start).toLocaleDateString(),
-        Location: event.location || '',
-        Type: event.type ? (event.type.toLowerCase() === 'marché' ? 'Marché' : 'Collecte') : (event.status || ''),
-        Description: event.description || ''
-      }))
-    );
-    
-    // Create workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Events');
-    
-    // Generate Excel file
-    XLSX.writeFile(workbook, 'events_report.xlsx');
-    
-    toast({
-      title: 'Excel exported successfully',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
+  // Formater la date pour l'affichage
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: fr });
   };
-
-  if (isLoading) {
-    return <Text>Loading events...</Text>;
-  }
-
-  if (error) {
-    return <Text>Error loading events</Text>;
-  }
 
   return (
-    <Box>
-      <Flex mb={4} justifyContent="space-between" alignItems="center">
-        <Flex alignItems="center">
-          <Input
-            placeholder="Search events..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            width="300px"
-            mr={2}
+    <div className="bg-white rounded-lg shadow-md p-6 mt-8">
+      <h2 className="text-xl font-bold mb-4">Liste des événements</h2>
+      
+      {/* Filtres */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Titre</label>
+          <input
+            type="text"
+            name="title"
+            value={filters.title}
+            onChange={handleFilterChange}
+            className="w-full p-2 border border-gray-300 rounded-md"
+            placeholder="Filtrer par titre"
           />
-          <IconButton
-            aria-label="Search"
-            icon={<FiSearch />}
-            colorScheme="blue"
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <select
+            name="type"
+            value={filters.type}
+            onChange={handleFilterChange}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          >
+            <option value="">Tous</option>
+            <option value="collecte">Collecte</option>
+            <option value="marché">Marché</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
+          <input
+            type="text"
+            name="location"
+            value={filters.location}
+            onChange={handleFilterChange}
+            className="w-full p-2 border border-gray-300 rounded-md"
+            placeholder="Filtrer par lieu"
           />
-        </Flex>
-        <Flex>
-          <Button
-            leftIcon={<FiDownload />}
-            colorScheme="green"
-            variant="outline"
-            mr={2}
-            onClick={exportToPDF}
-          >
-            Export PDF
-          </Button>
-          <Button
-            leftIcon={<FiDownload />}
-            colorScheme="green"
-            onClick={exportToExcel}
-          >
-            Export Excel
-          </Button>
-        </Flex>
-      </Flex>
-
-      <Box overflowX="auto">
-        <Table variant="simple" borderWidth="1px" borderColor={borderColor}>
-          <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
-            <Tr>
-              <Th 
-                color={textColor} 
-                onClick={() => handleSort('name')}
-                cursor="pointer"
-              >
-                Name {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-              </Th>
-              <Th 
-                color={textColor} 
-                onClick={() => handleSort('date')}
-                cursor="pointer"
-              >
-                Date {sortConfig.key === 'date' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-              </Th>
-              <Th 
-                color={textColor} 
-                onClick={() => handleSort('location')}
-                cursor="pointer"
-              >
-                Location {sortConfig.key === 'location' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-              </Th>
-              <Th 
-                color={textColor} 
-                onClick={() => handleSort('type')}
-                cursor="pointer"
-              >
-                Type {sortConfig.key === 'type' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-              </Th>
-              <Th color={textColor}>Description</Th>
-              <Th color={textColor}>Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {filteredEvents.length > 0 ? (
-              filteredEvents.map((event) => (
-                <Tr key={event._id}>
-                  <Td color={textColor}>{event.name || event.title}</Td>
-                  <Td color={textColor}>{new Date(event.date || event.start).toLocaleDateString()}</Td>
-                  <Td color={textColor}>{event.location || ''}</Td>
-                  <Td>
-                    {event.type ? (
-                      <Box 
-                        as="span" 
-                        px={2} 
-                        py={1} 
-                        borderRadius="full" 
-                        fontSize="xs" 
-                        fontWeight="semibold"
-                        bg={event.type.toLowerCase() === 'marché' ? 'blue.100' : 'green.100'}
-                        color={event.type.toLowerCase() === 'marché' ? 'blue.500' : 'green.500'}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Date début (après)</label>
+          <input
+            type="date"
+            name="startDate"
+            value={filters.startDate}
+            onChange={handleFilterChange}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Date fin (avant)</label>
+          <input
+            type="date"
+            name="endDate"
+            value={filters.endDate}
+            onChange={handleFilterChange}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          />
+        </div>
+      </div>
+      
+      {/* Bouton de réinitialisation des filtres */}
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={resetFilters}
+          className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+        >
+          Réinitialiser les filtres
+        </button>
+      </div>
+      
+      {/* Tableau */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Titre
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date de début
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date de fin
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Type
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Lieu
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Description
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Bénévoles
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {currentEvents.length > 0 ? (
+              currentEvents.map((event) => {
+                // Déterminer le type d'événement pour l'affichage
+                let eventType = event.type || "collecte";
+                let bgColor = "#16a34a"; // default: green for collecte
+                
+                if (eventType.toLowerCase() === 'marché') {
+                  bgColor = "#3b82f6"; // blue
+                  eventType = "Marché";
+                } else {
+                  eventType = "Collecte";
+                }
+                
+                return (
+                  <tr key={event._id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{event.title}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{formatDate(event.start)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{formatDate(event.end)}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span 
+                        className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                        style={{ 
+                          backgroundColor: bgColor + '20', // Ajoute une transparence
+                          color: bgColor 
+                        }}
                       >
-                        {event.type.toLowerCase() === 'marché' ? 'Marché' : 'Collecte'}
-                      </Box>
-                    ) : (
-                      <Text color={textColor}>{event.status || ''}</Text>
-                    )}
-                  </Td>
-                  <Td color={textColor}>
-                    {event.description && event.description.length > 50
-                      ? `${event.description.substring(0, 50)}...`
-                      : (event.description || '')}
-                  </Td>
-                  <Td>
-                    <Flex>
-                      <IconButton
-                        aria-label="Edit event"
-                        icon={<FiEdit />}
-                        colorScheme="blue"
-                        size="sm"
-                        mr={2}
+                        {eventType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{event.location || "Non spécifié"}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{event.description || "Non spécifié"}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">
+                        {event.volunteers?.length || 0}/{event.expectedVolunteers || 1}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button 
+                        className="text-indigo-600 hover:text-indigo-900 mr-3"
                         onClick={() => onEdit(event)}
-                      />
-                      <IconButton
-                        aria-label="Delete event"
-                        icon={<FiTrash2 />}
-                        colorScheme="red"
-                        size="sm"
-                        onClick={() => handleDelete(event._id)}
-                      />
-                    </Flex>
-                  </Td>
-                </Tr>
-              ))
+                      >
+                        Modifier
+                      </button>
+                      <button 
+                        className="text-red-600 hover:text-red-900"
+                        onClick={() => onDelete(event._id)}
+                      >
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
-              <Tr>
-                <Td colSpan={6} textAlign="center">
-                  No events found
-                </Td>
-              </Tr>
+              <tr>
+                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                  Aucun événement trouvé
+                </td>
+              </tr>
             )}
-          </Tbody>
-        </Table>
-      </Box>
-    </Box>
+          </tbody>
+        </table>
+      </div>
+      
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-6">
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <span className="sr-only">Précédent</span>
+              &laquo; Précédent
+            </button>
+            
+            {/* Afficher les numéros de page */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                  currentPage === page
+                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <span className="sr-only">Suivant</span>
+              Suivant &raquo;
+            </button>
+          </nav>
+        </div>
+      )}
+      
+      {/* Informations sur les résultats */}
+      <div className="mt-4 text-sm text-gray-500 text-center">
+        Affichage de {indexOfFirstEvent + 1} à {Math.min(indexOfLastEvent, filteredEvents.length)} sur {filteredEvents.length} événements
+      </div>
+    </div>
   );
 };
 

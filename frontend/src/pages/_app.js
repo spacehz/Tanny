@@ -3,8 +3,7 @@ import '../styles/calendar.css';
 import Layout from '../components/layout/Layout';
 import { SWRConfig } from 'swr';
 import { AuthProvider } from '../context/AuthContext';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import ToastProvider from '../components/ToastProvider';
 import { useRouter } from 'next/router';
 
 function MyApp({ Component, pageProps }) {
@@ -53,7 +52,7 @@ function MyApp({ Component, pageProps }) {
         }}
       >
         {getLayout()}
-        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+        <ToastProvider />
       </SWRConfig>
     </AuthProvider>
   );

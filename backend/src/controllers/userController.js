@@ -207,10 +207,7 @@ exports.getVolunteers = async (req, res) => {
       filter.availability = availability;
     }
     
-    // Ajouter le filtre de statut si présent
-    if (isActive !== null) {
-      filter.isActive = isActive;
-    }
+    // Le filtre de statut a été supprimé car nous utilisons maintenant uniquement la disponibilité
     
     const volunteers = await User.find(filter)
       .select('-password')
@@ -258,7 +255,7 @@ exports.createVolunteer = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { name, email, password, availability } = req.body;
+  const { name, email, password, availability, absencePeriod } = req.body;
 
   try {
     // Vérifier si l'utilisateur existe déjà
@@ -274,7 +271,9 @@ exports.createVolunteer = async (req, res) => {
       email,
       password,
       role: 'bénévole',
-      availability: availability || 'Flexible',
+      availability: availability || 'oui',
+      absencePeriod: absencePeriod || { startDate: null, endDate: null },
+      volunteerHours: 0, // Initialiser explicitement les heures de bénévolat à 0
     });
 
     if (volunteer) {
@@ -284,6 +283,8 @@ exports.createVolunteer = async (req, res) => {
         email: volunteer.email,
         role: volunteer.role,
         availability: volunteer.availability,
+        absencePeriod: volunteer.absencePeriod,
+        volunteerHours: volunteer.volunteerHours,
       });
     } else {
       res.status(400).json({ message: 'Données bénévole invalides' });
@@ -306,6 +307,20 @@ exports.updateVolunteer = async (req, res) => {
       volunteer.email = req.body.email || volunteer.email;
       volunteer.availability = req.body.availability || volunteer.availability;
       
+      // Le champ volunteerHours ne doit pas être modifié manuellement
+      // Il sera incrémenté automatiquement lorsqu'un bénévole participe à un événement
+      if (req.body.absencePeriod) {
+        // S'assurer que volunteer.absencePeriod existe
+        if (!volunteer.absencePeriod) {
+          volunteer.absencePeriod = { startDate: null, endDate: null };
+        }
+        
+        volunteer.absencePeriod = {
+          startDate: req.body.absencePeriod.startDate !== undefined ? req.body.absencePeriod.startDate : volunteer.absencePeriod.startDate,
+          endDate: req.body.absencePeriod.endDate !== undefined ? req.body.absencePeriod.endDate : volunteer.absencePeriod.endDate
+        };
+      }
+      
       if (req.body.password) {
         volunteer.password = req.body.password;
       }
@@ -318,6 +333,8 @@ exports.updateVolunteer = async (req, res) => {
         email: updatedVolunteer.email,
         role: updatedVolunteer.role,
         availability: updatedVolunteer.availability,
+        absencePeriod: updatedVolunteer.absencePeriod,
+        volunteerHours: updatedVolunteer.volunteerHours,
       });
     } else {
       res.status(404).json({ message: 'Bénévole non trouvé' });
@@ -401,7 +418,7 @@ exports.createMerchant = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { name, email, password, businessName, address, phoneNumber, isActive } = req.body;
+  const { name, email, password, businessName, address, phoneNumber } = req.body;
 
   try {
     // Vérifier si l'utilisateur existe déjà
@@ -420,7 +437,7 @@ exports.createMerchant = async (req, res) => {
       businessName: businessName || '',
       address: address || '',
       phoneNumber: phoneNumber || '',
-      isActive: isActive !== undefined ? isActive : true
+
     });
 
     if (merchant) {
@@ -457,9 +474,7 @@ exports.updateMerchant = async (req, res) => {
       merchant.address = req.body.address || merchant.address;
       merchant.phoneNumber = req.body.phoneNumber || merchant.phoneNumber;
       
-      if (req.body.isActive !== undefined) {
-        merchant.isActive = req.body.isActive;
-      }
+
       
       if (req.body.password) {
         merchant.password = req.body.password;
@@ -475,7 +490,7 @@ exports.updateMerchant = async (req, res) => {
         businessName: updatedMerchant.businessName,
         address: updatedMerchant.address,
         phoneNumber: updatedMerchant.phoneNumber,
-        isActive: updatedMerchant.isActive
+
       });
     } else {
       res.status(404).json({ message: 'Commerçant non trouvé' });

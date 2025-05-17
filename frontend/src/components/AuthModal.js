@@ -53,7 +53,7 @@ const AuthModal = ({ isOpen, onClose, requiredRole }) => {
           />
         </div>
         
-        <div className="flex justify-end space-x-3">
+        <div className="flex justify-end space-x-3 sticky bottom-0 bg-white py-2 border-t border-gray-200 mt-4">
           <button
             type="button"
             onClick={onClose}

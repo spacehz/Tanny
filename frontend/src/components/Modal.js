@@ -61,10 +61,11 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
       
       {/* Contenu du modal */}
       <div 
-        className={`bg-white rounded-xl shadow-xl z-[102] ${getModalWidth()} w-full max-h-[90vh] overflow-y-auto m-4 transition-all transform animate-modalFadeIn relative`}
+        className={`bg-white rounded-xl shadow-xl z-[102] ${getModalWidth()} w-full max-h-[90vh] m-4 transition-all transform animate-modalFadeIn relative flex flex-col`}
         onClick={handleModalContentClick}
       >
-        <div className="flex justify-between items-center p-4 border-b border-gray-200">
+        {/* En-tête du modal (fixe) */}
+        <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
           {title && <h2 className="text-xl font-bold text-gray-800">{title}</h2>}
           <button
             onClick={onClose}
@@ -76,7 +77,9 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
             </svg>
           </button>
         </div>
-        <div className="p-4">
+        
+        {/* Corps du modal (scrollable) */}
+        <div className="p-4 overflow-y-auto flex-grow">
           {children}
         </div>
       </div>

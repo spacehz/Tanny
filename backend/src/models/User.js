@@ -32,7 +32,22 @@ const userSchema = new mongoose.Schema(
     },
     availability: {
       type: String,
-      default: 'Flexible',
+      enum: ['oui', 'non'],
+      default: 'oui',
+    },
+    absencePeriod: {
+      startDate: {
+        type: Date,
+        default: null
+      },
+      endDate: {
+        type: Date,
+        default: null
+      }
+    },
+    volunteerHours: {
+      type: Number,
+      default: 0
     },
     phoneNumber: {
       type: String,
@@ -46,10 +61,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+
   },
   {
     timestamps: true,

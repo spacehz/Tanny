@@ -7,7 +7,6 @@ import { useRouter } from 'next/router';
 export default function VolunteersManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
   const router = useRouter();
   
   // Effet pour débouncer la recherche
@@ -22,10 +21,6 @@ export default function VolunteersManagement() {
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };
-  
-  const handleAddVolunteer = () => {
-    setShowAddModal(true);
-  };
 
   return (
     <AdminLayout>
@@ -38,7 +33,7 @@ export default function VolunteersManagement() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Gestion des bénévoles</h1>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center">
             <div className="relative">
               <input
                 type="text"
@@ -53,24 +48,12 @@ export default function VolunteersManagement() {
                 </svg>
               </div>
             </div>
-            
-            <button 
-              onClick={handleAddVolunteer}
-              className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Ajouter un bénévole
-            </button>
           </div>
         </div>
         
         <div className="bg-white rounded-lg shadow-md p-6">
           <VolunteersTable 
-            searchTerm={debouncedSearchTerm} 
-            showAddModal={showAddModal}
-            setShowAddModal={setShowAddModal}
+            searchTerm={debouncedSearchTerm}
           />
         </div>
       </div>

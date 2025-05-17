@@ -921,7 +921,7 @@ const RegisterModal = ({ isOpen, onClose }) => {
             </div>
           )}
           
-          <div className="mt-6 flex justify-between">
+          <div className="mt-6 flex justify-between sticky bottom-0 bg-white py-2 border-t border-gray-200">
             {step > 1 ? (
               <button
                 type="button"

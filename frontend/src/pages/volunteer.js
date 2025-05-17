@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Head from 'next/head';
 import VolunteerLayout from '../components/layout/VolunteerLayout';
@@ -10,90 +10,61 @@ import interactionPlugin from '@fullcalendar/interaction';
 import frLocale from '@fullcalendar/core/locales/fr';
 import calendarStyles from '../styles/FullCalendar.module.css';
 import EventDetailsModal from '../components/EventDetailsModal';
-import TablePagination from '../components/TablePagination';
-import TableSearch from '../components/TableSearch';
 import { registerForEvent, unregisterFromEvent } from '../services/eventService';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-hot-toast';
 
-// Fonctions utilitaires pour les toasts
+// Fonction utilitaire pour les notifications
 const notify = {
-  success: (message) => toast.success(message, { autoClose: 3000 }),
-  error: (message) => toast.error(message, { autoClose: 3000 }),
-  info: (message) => toast.info(message, { autoClose: 3000 }),
-  warning: (message) => toast.warning(message, { autoClose: 3000 }),
+  success: (message) => toast.success(message),
+  error: (message) => toast.error(message),
+  info: (message) => toast.custom((t) => (
+    <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+      <div className="flex-1 w-0 p-4">
+        <div className="flex items-start">
+          <div className="ml-3 flex-1">
+            <p className="text-sm font-medium text-gray-900">{message}</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex border-l border-gray-200">
+        <button
+          onClick={() => toast.dismiss(t.id)}
+          className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          Fermer
+        </button>
+      </div>
+    </div>
+  ))
 };
 
 export default function VolunteerPage() {
   const { user } = useAuth();
   const { data, error, isLoading, mutate } = useEvents();
   
-  // État pour suivre les événements auxquels l'utilisateur est inscrit localement
-  // Cela permet de maintenir l'état d'inscription même après un rafraîchissement des données
-  const [localUserRegistrations, setLocalUserRegistrations] = useState([]);
-  
-  // État pour verrouiller les modifications d'état pendant les opérations asynchrones
-  const [stateLocked, setStateLocked] = useState(false);
-  
-  // État pour désactiver la synchronisation automatique avec le serveur
-  const [disableAutoSync, setDisableAutoSync] = useState(true);
-  
   const [events, setEvents] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [localUserRegistrations, setLocalUserRegistrations] = useState([]);
   
-  // États pour la pagination, la recherche et le tri
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'start', direction: 'asc' });
-
-  // Fonction de synchronisation automatique avec la base de données
-  // SOLUTION RADICALE: Rafraîchir complètement les données depuis le serveur
-  const synchronizeWithDatabase = () => {
-    console.log("[DEBUG RADICAL] Synchronisation automatique avec la base de données");
-    
-    // Forcer le rafraîchissement des données depuis le serveur
-    mutate();
-    
-    // Mettre à jour localUserRegistrations en fonction des données du serveur
-    if (data && data.data && user && user._id) {
-      const userRegisteredEvents = data.data
-        .filter(event => 
-          Array.isArray(event.volunteers) && 
-          event.volunteers.some(id => id.toString() === user._id.toString())
-        )
-        .map(event => event._id);
-      
-      console.log("[DEBUG RADICAL] Événements où l'utilisateur est inscrit selon le serveur:", userRegisteredEvents);
-      
-      // Mettre à jour localUserRegistrations avec les données du serveur
-      setLocalUserRegistrations(userRegisteredEvents);
-      
-      // Sauvegarder dans localStorage
-      localStorage.setItem('userRegistrations', JSON.stringify(userRegisteredEvents));
-    }
-    
-    // Notification
-    notify.success("Données synchronisées avec la base de données");
-  };
-
   // Synchronisation automatique au chargement des données
   useEffect(() => {
     if (data && data.data && user && user._id) {
-      console.log('[DEBUG SYNC] Données d\'événements reçues de l\'API:', data.data);
-      console.log('[DEBUG SYNC] Nombre total d\'événements reçus:', data.data.length);
+      console.log("Données reçues du serveur:", data.data);
       
       // Extraire les événements où l'utilisateur est inscrit selon le serveur
       const userRegisteredEvents = data.data
         .filter(event => 
           Array.isArray(event.volunteers) && 
-          event.volunteers.some(id => id.toString() === user._id.toString())
+          event.volunteers.some(id => {
+            const volunteerId = typeof id === 'object' ? id._id || id.id : id;
+            return volunteerId && volunteerId.toString() === user._id.toString();
+          })
         )
         .map(event => event._id);
       
-      console.log('[DEBUG SYNC] Événements où l\'utilisateur est inscrit selon le serveur:', userRegisteredEvents);
+      console.log("Événements où l'utilisateur est inscrit:", userRegisteredEvents);
       
       // Mettre à jour localUserRegistrations avec les données du serveur
       setLocalUserRegistrations(userRegisteredEvents);
@@ -107,290 +78,66 @@ export default function VolunteerPage() {
       
       // Formater les événements pour FullCalendar
       const formattedEvents = data.data.map(event => {
-        // Déterminer le nombre total de bénévoles attendus
-        // Utiliser spécifiquement le champ ExpectedVolunteers
-        console.log(`[DEBUG INITIAL] ID de l'événement:`, event._id);
-        console.log(`[DEBUG INITIAL] Champ ExpectedVolunteers:`, event.ExpectedVolunteers);
-        console.log(`[DEBUG INITIAL] Champ expectedVolunteers (minuscule):`, event.expectedVolunteers);
-        console.log(`[DEBUG INITIAL] Tous les champs de l'événement:`, event);
-        
-        // Vérifier spécifiquement l'événement avec ID 68236383c4f5da564a83e6ab
-        if (event._id === '68236383c4f5da564a83e6ab' || event._id?.toString() === '68236383c4f5da564a83e6ab') {
-          console.log('[DEBUG INITIAL] ÉVÉNEMENT TROUVÉ: ID 68236383c4f5da564a83e6ab');
-          console.log('[DEBUG INITIAL] Données complètes:', event);
-        }
-        
         // Utiliser le champ ExpectedVolunteers ou expectedVolunteers ou une valeur par défaut de 5
         const totalVolunteersNeeded = event.ExpectedVolunteers || event.expectedVolunteers || 5;
         
         // Vérifier si le champ volunteers existe et est un array
         const volunteersArray = event.volunteers || [];
-        console.log(`[DEBUG INITIAL] Champ volunteers:`, event.volunteers);
         
         // S'assurer que nous utilisons bien un array et que nous comptons correctement les bénévoles
-        // IMPORTANT: Nous devons nous assurer de ne pas compter deux fois l'utilisateur actuel
-        // Nous utilisons les données du serveur telles quelles, sans ajouter l'utilisateur actuel
-        // même s'il est dans localUserRegistrations
         const registeredVolunteers = Array.isArray(volunteersArray) ? volunteersArray.length : 0;
         
         // Calculer le nombre de places restantes
         const availableSpots = Math.max(0, totalVolunteersNeeded - registeredVolunteers);
         
-        console.log(`[DEBUG INITIAL] Événement: ${event.name || event.title}`);
-        console.log(`[DEBUG INITIAL] Total attendu: ${totalVolunteersNeeded}`);
-        console.log(`[DEBUG INITIAL] Bénévoles inscrits:`, volunteersArray);
-        console.log(`[DEBUG INITIAL] Nombre de bénévoles inscrits: ${registeredVolunteers}`);
-        console.log(`[DEBUG INITIAL] Places restantes: ${availableSpots}`);
-        
         // Créer une copie complète de l'événement pour éviter les références circulaires
         const eventCopy = { ...event };
         
+        // Vérifier si l'utilisateur est inscrit à cet événement
+        const isUserRegistered = Array.isArray(volunteersArray) && 
+          volunteersArray.some(id => {
+            const volunteerId = typeof id === 'object' ? id._id || id.id : id;
+            return volunteerId && volunteerId.toString() === user._id.toString();
+          });
+        
+        console.log(`Événement ${event._id} - Utilisateur inscrit: ${isUserRegistered}`);
+        console.log(`Bénévoles inscrits:`, volunteersArray);
+        
         return {
           id: event._id,
-          title: event.name || event.title,
-          start: event.date || event.start,
+          title: event.title || event.name,
+          start: event.start,
           end: event.end,
-          backgroundColor: getEventColor(event.type || event.status),
-          borderColor: getEventColor(event.type || event.status),
+          allDay: event.allDay || false,
+          backgroundColor: getEventColor(event.type),
+          borderColor: getEventColor(event.type),
+          textColor: '#ffffff',
           extendedProps: {
-            location: event.location,
+            type: event.type,
             description: event.description,
-            type: event.type || event.status,
+            location: event.location,
             volunteersNeeded: totalVolunteersNeeded,
             registeredVolunteers: registeredVolunteers,
             availableSpots: availableSpots,
+            isUserRegistered: isUserRegistered,
+            volunteers: volunteersArray,
             // Conserver les données brutes pour le débogage
             rawEvent: eventCopy
           }
         };
       });
       
-      console.log('Nombre d\'événements formatés:', formattedEvents.length);
       setEvents(formattedEvents);
 
       // Filtrer les événements à venir pour le calendrier uniquement
-      // Pour le tableau, nous utiliserons tous les événements
       const now = new Date();
       const upcoming = formattedEvents
         .filter(event => new Date(event.start) > now)
         .sort((a, b) => new Date(a.start) - new Date(b.start));
       
-      console.log('Nombre d\'événements à venir:', upcoming.length);
       setUpcomingEvents(upcoming);
     }
   }, [data, user]);
-  
-  // Fonction pour gérer le tri
-  const requestSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-  
-  // Fonction pour obtenir les classes CSS pour l'en-tête de colonne triable
-  const getSortIndicator = (key) => {
-    if (sortConfig.key !== key) {
-      return 'text-gray-400';
-    }
-    return sortConfig.direction === 'asc' ? 'text-primary-600' : 'text-primary-600 rotate-180';
-  };
-  
-  // Filtrer et trier tous les événements pour le tableau (pas seulement les événements à venir)
-  const filteredAndSortedEvents = useMemo(() => {
-    // Utiliser tous les événements au lieu de seulement les événements à venir
-    let filteredEvents = [...events];
-    
-    console.log('Nombre total d\'événements:', events.length);
-    console.log('Terme de recherche:', searchTerm);
-    
-    if (searchTerm) {
-      const searchTermLower = searchTerm.toLowerCase();
-      filteredEvents = filteredEvents.filter(event => {
-        const titleMatch = event.title && event.title.toLowerCase().includes(searchTermLower);
-        const locationMatch = event.extendedProps.location && event.extendedProps.location.toLowerCase().includes(searchTermLower);
-        const typeMatch = event.extendedProps.type && event.extendedProps.type.toLowerCase().includes(searchTermLower);
-        const descriptionMatch = event.extendedProps.description && event.extendedProps.description.toLowerCase().includes(searchTermLower);
-        
-        const isMatch = titleMatch || locationMatch || typeMatch || descriptionMatch;
-        console.log(`Événement "${event.title}" correspond à la recherche: ${isMatch}`);
-        
-        return isMatch;
-      });
-      
-      console.log('Nombre d\'événements après filtrage:', filteredEvents.length);
-    }
-    
-    // Trier les événements
-    if (sortConfig.key) {
-      filteredEvents.sort((a, b) => {
-        let aValue, bValue;
-        
-        // Déterminer les valeurs à comparer en fonction de la clé de tri
-        if (sortConfig.key === 'title') {
-          aValue = a.title || '';
-          bValue = b.title || '';
-        } else if (sortConfig.key === 'start') {
-          aValue = new Date(a.start);
-          bValue = new Date(b.start);
-        } else if (sortConfig.key === 'location') {
-          aValue = a.extendedProps.location || '';
-          bValue = b.extendedProps.location || '';
-        } else if (sortConfig.key === 'type') {
-          aValue = a.extendedProps.type || '';
-          bValue = b.extendedProps.type || '';
-        } else if (sortConfig.key === 'availableSpots') {
-          aValue = a.extendedProps.availableSpots || 0;
-          bValue = b.extendedProps.availableSpots || 0;
-        }
-        
-        // Comparer les valeurs
-        if (aValue < bValue) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-    
-    return filteredEvents;
-  }, [events, searchTerm, sortConfig]);
-  
-  // Calculer les événements paginés
-  const paginatedEvents = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredAndSortedEvents.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredAndSortedEvents, currentPage, itemsPerPage]);
-  
-  // Calculer le nombre total de pages
-  const totalPages = useMemo(() => {
-    return Math.ceil(filteredAndSortedEvents.length / itemsPerPage);
-  }, [filteredAndSortedEvents, itemsPerPage]);
-  
-  // Réinitialiser la page courante lorsque le terme de recherche change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
-  
-  // Effet pour sauvegarder localUserRegistrations dans localStorage
-  useEffect(() => {
-    console.log("localUserRegistrations a changé:", localUserRegistrations);
-    
-    // Sauvegarder l'état dans le localStorage pour le persister entre les rechargements de page
-    if (localUserRegistrations.length > 0) {
-      localStorage.setItem('userRegistrations', JSON.stringify(localUserRegistrations));
-    } else {
-      localStorage.removeItem('userRegistrations');
-    }
-    
-    // Ne pas modifier les événements ici pour éviter les doubles décrements
-    // Les événements seront mis à jour par les fonctions handleRegisterForEvent et handleUnregisterFromEvent
-  }, [localUserRegistrations]);
-  
-  // Effet pour synchroniser l'état local avec localStorage à chaque changement
-  useEffect(() => {
-    if (localUserRegistrations.length > 0) {
-      console.log("Sauvegarde des inscriptions dans localStorage:", localUserRegistrations);
-      localStorage.setItem('userRegistrations', JSON.stringify(localUserRegistrations));
-    }
-  }, [localUserRegistrations]);
-  
-  // Effet pour recalculer les places disponibles lorsque les événements changent
-  useEffect(() => {
-    // Ne rien faire si les événements ne sont pas encore chargés
-    if (!events || events.length === 0) return;
-    
-    // Recalculer les places disponibles pour tous les événements
-    const updatedEvents = events.map(event => {
-      // Récupérer les données brutes de l'événement
-      const rawEvent = event.extendedProps?.rawEvent;
-      if (!rawEvent) return event;
-      
-      // Calculer le nombre de places disponibles
-      const totalVolunteersNeeded = rawEvent.ExpectedVolunteers || 
-                                   rawEvent.expectedVolunteers || 
-                                   event.extendedProps?.volunteersNeeded || 
-                                   5;
-      
-      const volunteers = Array.isArray(rawEvent.volunteers) ? rawEvent.volunteers : [];
-      const registeredVolunteers = volunteers.length;
-      const availableSpots = Math.max(0, totalVolunteersNeeded - registeredVolunteers);
-      
-      // Vérifier si l'utilisateur est inscrit à cet événement en utilisant la fonction isUserRegistered
-      const userIsRegistered = isUserRegistered(event);
-      
-      // Mettre à jour les propriétés de l'événement
-      return {
-        ...event,
-        extendedProps: {
-          ...event.extendedProps,
-          availableSpots: availableSpots,
-          isUserRegistered: isUserRegistered,
-          volunteersNeeded: totalVolunteersNeeded,
-          registeredVolunteers: registeredVolunteers
-        }
-      };
-    });
-    
-    // Mettre à jour les événements si des changements ont été détectés
-    const hasChanges = updatedEvents.some((event, index) => {
-      const originalEvent = events[index];
-      return event.extendedProps.availableSpots !== originalEvent.extendedProps.availableSpots ||
-             event.extendedProps.isUserRegistered !== originalEvent.extendedProps.isUserRegistered;
-    });
-    
-    if (hasChanges) {
-      console.log("Mise à jour des places disponibles pour les événements");
-      setEvents(updatedEvents);
-    }
-  }, [events.length, localUserRegistrations, user]);
-  
-  // Effet pour nettoyer les inscriptions invalides dans le localStorage
-  useEffect(() => {
-    // Ne rien faire si les événements ne sont pas encore chargés ou si l'utilisateur n'est pas connecté
-    if (!events || events.length === 0 || !user || !user._id) return;
-    
-    console.log("Nettoyage des inscriptions invalides dans le localStorage...");
-    
-    // Collecter tous les IDs d'événements valides
-    const validEventIds = events.map(event => event.id);
-    
-    // Filtrer les inscriptions locales pour ne garder que celles qui correspondent à des événements valides
-    const validRegistrations = localUserRegistrations.filter(eventId => 
-      validEventIds.includes(eventId) || 
-      events.some(event => 
-        event.extendedProps?.rawEvent?._id === eventId || 
-        event.extendedProps?.rawEvent?._id?.toString() === eventId
-      )
-    );
-    
-    // Si des inscriptions ont été supprimées, mettre à jour l'état local
-    if (validRegistrations.length !== localUserRegistrations.length) {
-      console.log("Suppression des inscriptions invalides:", 
-        localUserRegistrations.filter(id => !validRegistrations.includes(id)));
-      
-      setLocalUserRegistrations(validRegistrations);
-      localStorage.setItem('userRegistrations', JSON.stringify(validRegistrations));
-    }
-  }, [events.length, user]);
-  
-  // Effet pour synchroniser les inscriptions avec le serveur au démarrage de l'application
-  useEffect(() => {
-    // Ne rien faire si les événements ne sont pas encore chargés ou si l'utilisateur n'est pas connecté
-    if (!events || events.length === 0 || !user || !user._id) return;
-    
-    console.log("Synchronisation des inscriptions avec le serveur...");
-    
-    // Forcer une synchronisation complète avec le serveur
-    synchronizeWithDatabase();
-    
-    // Désactiver la synchronisation automatique après le chargement initial
-    setDisableAutoSync(false);
-    
-  }, [events.length, user]);
 
   // Fonction pour déterminer la couleur en fonction du type d'événement
   const getEventColor = (type) => {
@@ -405,1207 +152,240 @@ export default function VolunteerPage() {
     return '#10b981'; // Vert par défaut
   };
 
-  // Fonction pour formater la date complète en français (avec heure)
-  const formatDate = (dateString) => {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString('fr-FR', options);
-  };
-
-  // Fonction pour formater uniquement la date (sans l'heure)
-  const formatDateOnly = (dateString) => {
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('fr-FR', options);
-  };
-
-  // Fonction pour calculer la durée entre deux dates
-  const calculateDuration = (startDate, endDate) => {
-    if (!endDate) return "Non précisée";
-    
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    // Calculer la différence en millisecondes
-    const diffMs = end - start;
-    
-    // Si la durée est négative, retourner une valeur par défaut
-    if (diffMs < 0) return "Durée invalide";
-    
-    // Convertir en minutes, heures et jours
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    // Formater la durée selon sa longueur
-    if (diffDays > 0) {
-      return `${diffDays} jour${diffDays > 1 ? 's' : ''}`;
-    } else if (diffHours > 0) {
-      const remainingMinutes = diffMinutes % 60;
-      if (remainingMinutes > 0) {
-        return `${diffHours}h${remainingMinutes.toString().padStart(2, '0')}`;
-      } else {
-        return `${diffHours} heure${diffHours > 1 ? 's' : ''}`;
-      }
-    } else {
-      return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
-    }
-  };
-
   // Fonction pour gérer le clic sur un événement
   const handleEventClick = (clickInfo) => {
     // Stocker l'événement sélectionné et ouvrir le modal
     setSelectedEvent(clickInfo.event);
     setIsEventModalOpen(true);
   };
-  
-  // État pour suivre les événements en cours d'inscription/désinscription
-  const [loadingEventIds, setLoadingEventIds] = useState([]);
-  
-  // État pour stocker la position de défilement actuelle
-  const [scrollPosition, setScrollPosition] = useState(0);
-  
-  // Fonction pour sauvegarder la position de défilement actuelle
-  const saveScrollPosition = () => {
-    setScrollPosition(window.pageYOffset);
-  };
-  
-  // Fonction pour restaurer la position de défilement
-  const restoreScrollPosition = () => {
-    if (scrollPosition > 0) {
-      window.scrollTo(0, scrollPosition);
-    }
-  };
-  
-  // Fonction utilitaire pour recalculer les places disponibles pour un événement
-  const recalculateAvailableSpots = (event) => {
-    // Vérifier que l'événement existe
-    if (!event) return event;
-    
-    // Créer une copie de l'événement pour éviter de modifier directement les données
-    const updatedEvent = { ...event };
-    
-    // Récupérer les données brutes de l'événement
-    const rawEvent = updatedEvent.extendedProps?.rawEvent || updatedEvent;
-    
-    // Calculer le nombre de places disponibles
-    const totalVolunteersNeeded = rawEvent.ExpectedVolunteers || 
-                                 rawEvent.expectedVolunteers || 
-                                 updatedEvent.extendedProps?.volunteersNeeded || 
-                                 5;
-    
-    // IMPORTANT: Utiliser UNIQUEMENT les données du serveur pour le calcul des places disponibles
-    const volunteers = Array.isArray(rawEvent.volunteers) ? rawEvent.volunteers : [];
-    const registeredVolunteers = volunteers.length;
-    
-    // Calculer le nombre de places disponibles
-    const availableSpots = Math.max(0, totalVolunteersNeeded - registeredVolunteers);
-    
-    // Vérifier si l'utilisateur est inscrit à cet événement selon les données du serveur uniquement
-    const isRegistered = isUserRegistered(updatedEvent);
-    
-    // Mettre à jour les propriétés de l'événement
-    if (updatedEvent.extendedProps) {
-      updatedEvent.extendedProps = {
-        ...updatedEvent.extendedProps,
-        // Mettre à jour explicitement les propriétés utilisées pour l'affichage
-        availableSpots: availableSpots,
-        isUserRegistered: isUserRegistered,
-        volunteersNeeded: totalVolunteersNeeded,
-        registeredVolunteers: adjustedRegisteredVolunteers // Utiliser le nombre ajusté
-      };
-    }
-    
-    console.log(`[DEBUG FRONTEND] Propriétés mises à jour:`, updatedEvent.extendedProps);
-    
-    return updatedEvent;
-  };
-  
-  // Fonction pour vérifier si l'utilisateur est inscrit à un événement
-  // SOLUTION RADICALE: Se baser UNIQUEMENT sur les données du serveur
-  const isUserRegistered = (event) => {
-    if (!user || !user._id) {
-      return false;
-    }
-    
-    // Vérifier UNIQUEMENT si l'utilisateur est dans le tableau des bénévoles de l'événement
-    if (event?.extendedProps?.rawEvent?.volunteers && 
-        Array.isArray(event.extendedProps.rawEvent.volunteers)) {
-      
-      // Vérifier si l'ID de l'utilisateur est dans le tableau des bénévoles
-      return event.extendedProps.rawEvent.volunteers.some(
-        volunteerId => user._id.toString() === volunteerId.toString()
-      );
-    }
-    
-    return false;
-  };
-  
-  // Fonction pour gérer l'inscription à un événement
+
+  // Fonction pour s'inscrire à un événement
   const handleRegisterForEvent = async (eventId) => {
-    console.log(`[DEBUG REGISTER] Début de l'inscription à l'événement ${eventId}`);
-    
-    // Sauvegarder la position de défilement actuelle
-    saveScrollPosition();
-    
-    // Vérifier si l'utilisateur est connecté
-    if (!user || !user._id) {
-      console.error("[DEBUG REGISTER] Utilisateur non connecté");
-      notify.error("Vous devez être connecté pour vous inscrire à un événement.");
-      return;
-    }
-    
-    console.log(`[DEBUG REGISTER] Utilisateur connecté: ${user._id}`);
-    
-    // Éviter les inscriptions multiples simultanées pour le même événement
-    if (loadingEventIds.includes(eventId) || stateLocked) {
-      console.log("[DEBUG REGISTER] Opération ignorée: une autre opération est en cours");
-      return;
-    }
-    
-    // Vérifier si l'utilisateur est déjà inscrit à cet événement
-    const event = events.find(e => e.id === eventId);
-    if (!event) {
-      console.error("[DEBUG REGISTER] Événement non trouvé");
-      notify.error("Événement non trouvé.");
-      return;
-    }
-    
-    console.log(`[DEBUG REGISTER] Événement trouvé:`, event);
-    
-    // Afficher les détails de l'événement avant l'inscription
-    console.log(`[DEBUG REGISTER] Détails de l'événement avant inscription:`);
-    console.log(`[DEBUG REGISTER] ID: ${event.id}`);
-    console.log(`[DEBUG REGISTER] Titre: ${event.title}`);
-    console.log(`[DEBUG REGISTER] Places disponibles: ${event.extendedProps?.availableSpots}`);
-    console.log(`[DEBUG REGISTER] Bénévoles inscrits: ${event.extendedProps?.registeredVolunteers}`);
-    console.log(`[DEBUG REGISTER] Total attendu: ${event.extendedProps?.volunteersNeeded}`);
-    console.log(`[DEBUG REGISTER] Données brutes:`, event.extendedProps?.rawEvent);
-    
-    if (isUserRegistered(event)) {
-      console.log("[DEBUG REGISTER] L'utilisateur est déjà inscrit à cet événement");
-      notify.info("Vous êtes déjà inscrit à cet événement.");
-      return;
-    }
-    
-    // Verrouiller l'état pendant l'opération
-    setStateLocked(true);
-    console.log("[DEBUG REGISTER] État verrouillé");
-    
-    // Ajouter l'ID de l'événement à la liste des événements en cours de chargement
-    setLoadingEventIds(prev => [...prev, eventId]);
-    console.log(`[DEBUG REGISTER] Événement ${eventId} ajouté à loadingEventIds`);
-    
-    // Récupérer les valeurs actuelles avant modification
-    const totalVolunteersNeeded = event.extendedProps.volunteersNeeded || 
-                                 event.extendedProps.rawEvent?.expectedVolunteers || 
-                                 event.extendedProps.rawEvent?.ExpectedVolunteers || 
-                                 5;
-    
     try {
-      // Appeler l'API pour s'inscrire à l'événement
-      console.log(`[DEBUG REGISTER] Appel API pour s'inscrire à l'événement ${eventId}`);
-      const response = await registerForEvent(eventId);
-      console.log(`[DEBUG REGISTER] Réponse de l'API:`, response);
+      console.log(`Tentative d'inscription à l'événement ${eventId}`);
       
-      // Notification de succès
+      // Appel à l'API pour s'inscrire
+      const response = await registerForEvent(eventId);
+      console.log("Réponse de l'API d'inscription:", response);
+      
       notify.success("Vous êtes maintenant inscrit à cet événement");
       
-      // Forcer une synchronisation complète avec le serveur
-      synchronizeWithDatabase();
+      // Forcer le rafraîchissement complet des données depuis le serveur
+      await mutate();
       
-      // Mettre à jour immédiatement l'interface utilisateur pour refléter l'inscription
-      setEvents(prevEvents => {
-        return prevEvents.map(e => {
-          if (e.id === eventId) {
-            // Mettre à jour l'état d'inscription uniquement
-            return {
-              ...e,
-              extendedProps: {
-                ...e.extendedProps,
-                isUserRegistered: true,
-                // Ne pas modifier les places disponibles ici, elles seront mises à jour par synchronizeWithDatabase
-              }
-            };
-          }
-          return e;
-        });
-      });
-      
-      // Déverrouiller l'état après l'opération
-      setStateLocked(false);
-      
-      // Retirer l'ID de l'événement de la liste des événements en cours de chargement
-      setLoadingEventIds(prev => prev.filter(id => id !== eventId));
+      console.log("Données rafraîchies après inscription");
     } catch (error) {
-      console.error("[DEBUG REGISTER] Erreur lors de l'inscription:", error);
-      
-      // Notification d'erreur
-      notify.error("Une erreur est survenue lors de l'inscription. Veuillez réessayer.");
-      
-      // Déverrouiller l'état en cas d'erreur
-      setStateLocked(false);
-      
-      // Retirer l'ID de l'événement de la liste des événements en cours de chargement
-      setLoadingEventIds(prev => prev.filter(id => id !== eventId));
-    }
-      
-  // Ce code a été supprimé car il est redondant avec la fonction handleRegisterForEvent
-  // qui a déjà été mise à jour pour gérer correctement l'inscription
-            
-            return {
-              ...event,
-              extendedProps: {
-                ...event.extendedProps,
-                rawEvent: updatedRawEvent,
-                // Conserver explicitement les valeurs déjà calculées
-                availableSpots: currentAvailableSpots,
-                registeredVolunteers: currentRegisteredVolunteers
-                // Ne pas appeler recalculateAvailableSpots ici
-              }
-            };
-          }
-          return event;
-        });
-      });
-      
-      // SOLUTION POUR FORCER LE RAFRAÎCHISSEMENT DE L'INTERFACE
-      console.log("[DEBUG RADICAL] Forçage du rafraîchissement de l'interface utilisateur");
-      
-      // Forcer un re-rendu immédiat de tous les événements
-      setEvents(prevEvents => {
-        console.log("[DEBUG RADICAL] Forçage du re-rendu de tous les événements");
-        // Créer une nouvelle référence pour forcer le re-rendu
-        return [...prevEvents];
-      });
-      
-      // Ajouter un petit délai avant de rafraîchir les données
-      setTimeout(() => {
-        console.log("[DEBUG RADICAL] Rafraîchissement des données après un délai");
-        
-        // Utiliser la fonction de rappel de mutate pour préserver l'état local
-        mutate(undefined, {
-          optimisticData: (currentData) => {
-            console.log("[DEBUG RADICAL] Données optimistes:", currentData);
-            // Retourner les données actuelles sans modification
-            return currentData;
-          },
-          populateCache: false, // Ne pas mettre à jour le cache automatiquement
-          revalidate: false, // Ne pas revalider automatiquement
-          onSuccess: (newData) => {
-            console.log("[DEBUG RADICAL] Succès du rafraîchissement des données");
-            console.log("[DEBUG RADICAL] Nouvelles données:", newData);
-            
-            // SOLUTION POUR FORCER LE RAFRAÎCHISSEMENT DE L'INTERFACE APRÈS MUTATE
-            // Forcer un re-rendu immédiat de tous les événements après la mise à jour des données
-            setEvents(prevEvents => {
-              console.log("[DEBUG RADICAL] Forçage du re-rendu après mutate");
-              // Créer une nouvelle référence pour forcer le re-rendu
-              return [...prevEvents];
-            });
-            console.log("Données rafraîchies avec succès:", newData);
-            
-            // Mettre à jour manuellement les données en préservant l'état local
-            if (newData && newData.data) {
-              const updatedEvents = newData.data.map(event => {
-                // Vérifier si l'utilisateur est inscrit à cet événement selon l'état local
-                const isRegisteredLocally = localUserRegistrations.includes(event._id) || 
-                                           localUserRegistrations.includes(event._id?.toString());
-                
-                // Créer une copie de l'événement pour éviter de modifier directement les données
-                const updatedEvent = { ...event };
-                
-                // S'assurer que le tableau des bénévoles existe
-                if (!Array.isArray(updatedEvent.volunteers)) {
-                  updatedEvent.volunteers = [];
-                }
-                
-                // Si l'utilisateur est inscrit localement mais pas dans les données du serveur,
-                // ajouter l'utilisateur à la liste des bénévoles
-                if (isRegisteredLocally && 
-                    !updatedEvent.volunteers.some(id => id === user._id || id.toString() === user._id.toString())) {
-                  console.log(`Ajout manuel de l'utilisateur aux bénévoles pour l'événement ${updatedEvent._id}`);
-                  updatedEvent.volunteers.push(user._id);
-                }
-                
-                // Si l'utilisateur n'est pas inscrit localement mais est dans les données du serveur,
-                // retirer l'utilisateur de la liste des bénévoles
-                if (!isRegisteredLocally && 
-                    updatedEvent.volunteers.some(id => id === user._id || id.toString() === user._id.toString())) {
-                  console.log(`Retrait manuel de l'utilisateur des bénévoles pour l'événement ${updatedEvent._id}`);
-                  updatedEvent.volunteers = updatedEvent.volunteers.filter(
-                    id => id !== user._id && id.toString() !== user._id.toString()
-                  );
-                }
-                
-                return updatedEvent;
-              });
-              
-              // Mettre à jour les données avec les modifications
-              mutate({ ...newData, data: updatedEvents }, false);
-              
-              // Forcer une mise à jour des événements formatés pour refléter les changements
-              const formattedEvents = updatedEvents.map(event => {
-                // Calculer le nombre de places disponibles
-                const totalVolunteersNeeded = event.ExpectedVolunteers || event.expectedVolunteers || 5;
-                
-                // IMPORTANT: Nous devons nous assurer de ne pas compter deux fois l'utilisateur actuel
-                // Nous utilisons uniquement les données du serveur pour le calcul des places disponibles
-                const registeredVolunteers = Array.isArray(event.volunteers) ? event.volunteers.length : 0;
-                
-                // Vérifier si l'utilisateur est inscrit à cet événement selon l'état local
-                const isRegisteredLocally = localUserRegistrations.includes(event._id) || 
-                                           localUserRegistrations.includes(event._id?.toString());
-                
-                // Calculer le nombre de places disponibles
-                const availableSpots = Math.max(0, totalVolunteersNeeded - registeredVolunteers);
-                
-                // Créer une copie complète de l'événement
-                const eventCopy = { ...event };
-                
-                return {
-                  id: event._id,
-                  title: event.name || event.title,
-                  start: event.date || event.start,
-                  end: event.end,
-                  backgroundColor: getEventColor(event.type || event.status),
-                  borderColor: getEventColor(event.type || event.status),
-                  extendedProps: {
-                    location: event.location,
-                    description: event.description,
-                    type: event.type || event.status,
-                    volunteersNeeded: totalVolunteersNeeded,
-                    registeredVolunteers: registeredVolunteers,
-                    availableSpots: availableSpots,
-                    rawEvent: eventCopy
-                  }
-                };
-              });
-              
-              // Mettre à jour l'état des événements
-              setEvents(formattedEvents);
-            }
-            
-            // Restaurer la position de défilement après le rafraîchissement des données
-            setTimeout(restoreScrollPosition, 100);
-          }
-        });
-      }, 300);
-    } catch (error) {
-      console.error("Erreur lors de l'inscription à l'événement:", error);
-      
-      // Message d'erreur plus spécifique si possible
-      let errorMessage = "Une erreur est survenue lors de l'inscription. Veuillez réessayer.";
-      
-      if (error.response) {
-        console.log("Détails de l'erreur:", error.response);
-        errorMessage = error.response.data?.message || errorMessage;
-      }
-      
-      notify.error(errorMessage);
-    } finally {
-      // Retirer l'ID de l'événement de la liste des événements en cours de chargement
-      setLoadingEventIds(prev => prev.filter(id => id !== eventId));
-      
-      // Déverrouiller l'état après l'opération
-      setStateLocked(false);
-      
-      // SOLUTION FLUIDE: Synchroniser automatiquement avec la base de données
-      console.log("[DEBUG SYNC] Synchronisation automatique après inscription/désinscription");
-      
-      // Utiliser setTimeout pour s'assurer que la synchronisation se produit après toutes les autres opérations
-      setTimeout(() => {
-        // Synchroniser avec la base de données
-        synchronizeWithDatabase();
-        
-        // Forcer un re-rendu immédiat de tous les événements
-        setEvents(prevEvents => {
-          console.log("[DEBUG SYNC] Forçage du re-rendu de tous les événements après synchronisation");
-          // Créer une nouvelle référence pour forcer le re-rendu
-          return [...prevEvents];
-        });
-        
-        // Forcer également un rafraîchissement du DOM
-        requestAnimationFrame(() => {
-          const tableElement = document.querySelector('table');
-          if (tableElement) {
-            // Forcer un recalcul du layout en lisant une propriété qui déclenche un reflow
-            console.log("[DEBUG SYNC] Forçage d'un reflow du DOM");
-            const forceReflow = tableElement.offsetHeight;
-          }
-        });
-      }, 500);
+      console.error("Erreur lors de l'inscription:", error);
+      notify.error("Une erreur est survenue lors de l'inscription");
     }
   };
-  
-  // Fonction pour gérer la désinscription d'un événement
+
+  // Fonction pour se désinscrire d'un événement
   const handleUnregisterFromEvent = async (eventId) => {
-    // Sauvegarder la position de défilement actuelle
-    saveScrollPosition();
-    
-    // Vérifier si l'utilisateur est connecté
-    if (!user || !user._id) {
-      console.error("Utilisateur non connecté");
-      notify.error("Vous devez être connecté pour vous désinscrire d'un événement.");
-      return;
-    }
-    
-    // Éviter les désinscriptions multiples simultanées pour le même événement
-    if (loadingEventIds.includes(eventId) || stateLocked) {
-      console.log("Opération ignorée: une autre opération est en cours");
-      return;
-    }
-    
-    // Vérifier si l'événement existe
-    const event = events.find(e => e.id === eventId);
-    if (!event) {
-      console.error("Événement non trouvé");
-      notify.error("Événement non trouvé.");
-      return;
-    }
-    
-    // Vérifier si l'utilisateur est bien inscrit à cet événement
-    if (!isUserRegistered(event)) {
-      console.log("L'utilisateur n'est pas inscrit à cet événement");
-      notify.info("Vous n'êtes pas inscrit à cet événement.");
-      return;
-    }
-    
-    // Verrouiller l'état pendant l'opération
-    setStateLocked(true);
-    
-    // Ajouter l'ID de l'événement à la liste des événements en cours de chargement
-    setLoadingEventIds(prev => [...prev, eventId]);
-    
     try {
-      // Appeler l'API pour se désinscrire de l'événement
-      console.log(`Appel API pour se désinscrire de l'événement ${eventId}`);
-      const response = await unregisterFromEvent(eventId);
-      console.log(`Réponse de l'API:`, response);
+      console.log(`Tentative de désinscription de l'événement ${eventId}`);
       
-      // Notification de succès
+      // Appel à l'API pour se désinscrire
+      const response = await unregisterFromEvent(eventId);
+      console.log("Réponse de l'API de désinscription:", response);
+      
       notify.success("Vous êtes maintenant désinscrit de cet événement");
       
-      // Forcer une synchronisation complète avec le serveur
-      synchronizeWithDatabase();
+      // Forcer le rafraîchissement complet des données depuis le serveur
+      await mutate();
       
-      // Mettre à jour immédiatement l'interface utilisateur pour refléter la désinscription
-      setEvents(prevEvents => {
-        return prevEvents.map(e => {
-          if (e.id === eventId) {
-            // Mettre à jour l'état d'inscription uniquement
-            return {
-              ...e,
-              extendedProps: {
-                ...e.extendedProps,
-                isUserRegistered: false,
-                // Ne pas modifier les places disponibles ici, elles seront mises à jour par synchronizeWithDatabase
-              }
-            };
-          }
-          return e;
-        });
-      });
-      
-      // Déverrouiller l'état après l'opération
-      setStateLocked(false);
-      
-      // Retirer l'ID de l'événement de la liste des événements en cours de chargement
-      setLoadingEventIds(prev => prev.filter(id => id !== eventId));
+      console.log("Données rafraîchies après désinscription");
     } catch (error) {
       console.error("Erreur lors de la désinscription:", error);
-      
-      // Notification d'erreur
-      notify.error("Une erreur est survenue lors de la désinscription. Veuillez réessayer.");
-      
-      // Déverrouiller l'état en cas d'erreur
-      setStateLocked(false);
-      
-      // Retirer l'ID de l'événement de la liste des événements en cours de chargement
-      setLoadingEventIds(prev => prev.filter(id => id !== eventId));
-    } catch (error) {
-      console.error("Erreur lors de la désinscription:", error);
-      
-      // Notification d'erreur
-      notify.error("Une erreur est survenue lors de la désinscription. Veuillez réessayer.");
-      
-      // Déverrouiller l'état en cas d'erreur
-      setStateLocked(false);
-      
-      // Retirer l'ID de l'événement de la liste des événements en cours de chargement
-      setLoadingEventIds(prev => prev.filter(id => id !== eventId));
-    }
-  // Tout le code redondant a été supprimé
-            console.log(`  Total attendu: ${totalVolunteersNeeded}`);
-            console.log(`  Bénévoles inscrits après désinscription: ${registeredVolunteers}`);
-            console.log(`  Places restantes après désinscription: ${availableSpots}`);
-            
-            // Créer un événement mis à jour avec le nouveau tableau de bénévoles
-            const updatedEvent = {
-              ...event,
-              extendedProps: {
-                ...event.extendedProps,
-                rawEvent: updatedRawEvent,
-                // Mettre à jour explicitement les propriétés utilisées pour l'affichage
-                isUserRegistered: false,
-                availableSpots: availableSpots,
-                volunteersNeeded: totalVolunteersNeeded,
-                registeredVolunteers: registeredVolunteers
-              }
-            };
-            
-            // Utiliser la fonction utilitaire pour recalculer les places disponibles
-  // Tout le code redondant a été supprimé
-              return event;
-            }
-            
-            // Pour les autres événements, on s'assure que leurs propriétés sont à jour
-            const rawEvent = event.extendedProps?.rawEvent;
-            if (rawEvent) {
-              const totalVolunteersNeeded = rawEvent.ExpectedVolunteers || 
-                                           rawEvent.expectedVolunteers || 
-                                           event.extendedProps?.volunteersNeeded || 
-  // Tout le code redondant a été supprimé
-      }, 10);
-      
-      // Ajouter un petit délai avant de rafraîchir les données
-      setTimeout(() => {
-        // Utiliser la fonction de rappel de mutate pour préserver l'état local
-        mutate(undefined, {
-          optimisticData: (currentData) => {
-            console.log("Données optimistes:", currentData);
-            // Retourner les données actuelles sans modification
-            return currentData;
-          }
-        });
-                // Calculer le nombre de places disponibles
-                const totalVolunteersNeeded = event.ExpectedVolunteers || event.expectedVolunteers || 5;
-                
-                // IMPORTANT: Nous devons nous assurer de ne pas compter deux fois l'utilisateur actuel
-                // Nous utilisons uniquement les données du serveur pour le calcul des places disponibles
-                const registeredVolunteers = Array.isArray(event.volunteers) ? event.volunteers.length : 0;
-                
-                // Vérifier si l'utilisateur est inscrit à cet événement selon l'état local
-                const isRegisteredLocally = localUserRegistrations.includes(event._id) || 
-                                           localUserRegistrations.includes(event._id?.toString());
-                
-                // Calculer le nombre de places disponibles
-                const availableSpots = Math.max(0, totalVolunteersNeeded - registeredVolunteers);
-                
-                // Créer une copie complète de l'événement
-                const eventCopy = { ...event };
-                
-                return {
-                  id: event._id,
-                  title: event.name || event.title,
-                  start: event.date || event.start,
-                  end: event.end,
-                  backgroundColor: getEventColor(event.type || event.status),
-                  borderColor: getEventColor(event.type || event.status),
-                  extendedProps: {
-                    location: event.location,
-                    description: event.description,
-                    type: event.type || event.status,
-                    volunteersNeeded: totalVolunteersNeeded,
-                    registeredVolunteers: registeredVolunteers,
-                    availableSpots: availableSpots,
-                    rawEvent: eventCopy
-                  }
-                };
-              });
-              
-              // Mettre à jour l'état des événements
-              setEvents(formattedEvents);
-            }
-            
-            // Restaurer la position de défilement après le rafraîchissement des données
-            setTimeout(restoreScrollPosition, 100);
-          }
-        });
-      }, 300);
-    } catch (error) {
-      console.error("Erreur lors de la désinscription de l'événement:", error);
-      
-      // Message d'erreur plus spécifique si possible
-      let errorMessage = "Une erreur est survenue lors de la désinscription. Veuillez réessayer.";
-      
-      if (error.response) {
-        console.log("Détails de l'erreur:", error.response);
-        errorMessage = error.response.data?.message || errorMessage;
-      }
-      
-      notify.error(errorMessage);
-    } finally {
-      // Retirer l'ID de l'événement de la liste des événements en cours de chargement
-      setLoadingEventIds(prev => prev.filter(id => id !== eventId));
-      
-      // Déverrouiller l'état après l'opération
-      setStateLocked(false);
-      
-      // SOLUTION FLUIDE: Synchroniser automatiquement avec la base de données
-      console.log("[DEBUG SYNC] Synchronisation automatique après inscription/désinscription");
-      
-      // Utiliser setTimeout pour s'assurer que la synchronisation se produit après toutes les autres opérations
-      setTimeout(() => {
-        // Synchroniser avec la base de données
-        synchronizeWithDatabase();
-        
-        // Forcer un re-rendu immédiat de tous les événements
-        setEvents(prevEvents => {
-          console.log("[DEBUG SYNC] Forçage du re-rendu de tous les événements après synchronisation");
-          // Créer une nouvelle référence pour forcer le re-rendu
-          return [...prevEvents];
-        });
-        
-        // Forcer également un rafraîchissement du DOM
-        requestAnimationFrame(() => {
-          const tableElement = document.querySelector('table');
-          if (tableElement) {
-            // Forcer un recalcul du layout en lisant une propriété qui déclenche un reflow
-            console.log("[DEBUG SYNC] Forçage d'un reflow du DOM");
-            const forceReflow = tableElement.offsetHeight;
-          }
-        });
-      }, 500);
+      notify.error("Une erreur est survenue lors de la désinscription");
     }
   };
 
   return (
     <VolunteerLayout>
       <Head>
-        <title>Tableau de Bord Bénévole | TANY</title>
-        <meta name="description" content="Tableau de bord des bénévoles de l'association TANY" />
+        <title>Espace Bénévole - Calendrier</title>
       </Head>
-
-      {/* Overlay global de chargement */}
-      {loadingEventIds.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg shadow-lg flex items-center">
-            <svg className="animate-spin mr-3 h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <div>
-              <p className="text-lg font-semibold">Mise à jour en cours...</p>
-              <p className="text-sm text-gray-600">Veuillez patienter pendant que nous mettons à jour votre inscription.</p>
-            </div>
-          </div>
-        </div>
-      )}
       
-      <div className="container mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-primary-600">Tableau de Bord Bénévole</h1>
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">Calendrier des événements</h1>
         
-        {/* Informations de l'utilisateur */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Bienvenue, {user?.name || 'Bénévole'} !</h2>
-          <p className="text-gray-600">
-            Consultez les événements à venir et inscrivez-vous pour participer aux collectes et marchés.
-          </p>
-        </div>
-        
-        {/* Calendrier interactif */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Calendrier des événements</h2>
-          {isLoading ? (
-            <p>Chargement du calendrier...</p>
-          ) : error ? (
-            <p className="text-red-500">Erreur lors du chargement des événements</p>
-          ) : (
-            <div className={calendarStyles.calendarContainer}>
-              <FullCalendar
-                plugins={[dayGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                locale={frLocale}
-                events={events}
-                eventClick={handleEventClick}
-                headerToolbar={{
-                  left: 'prev,next today',
-                  center: 'title',
-                  right: 'dayGridMonth,dayGridWeek'
-                }}
-                buttonText={{
-                  today: "Aujourd'hui",
-                  month: 'Mois',
-                  week: 'Semaine'
-                }}
-                height="auto"
-              />
-            </div>
-          )}
-        </div>
-        
-        {/* Tableau récapitulatif des événements disponibles */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-semibold mb-2 sm:mb-0">Liste des événements</h2>
+          <div className={calendarStyles.calendarContainer}>
+            <FullCalendar
+              plugins={[dayGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              events={events}
+              eventClick={handleEventClick}
+              locale={frLocale}
+              height="auto"
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,dayGridWeek'
+              }}
+              buttonText={{
+                today: "Aujourd'hui",
+                month: 'Mois',
+                week: 'Semaine'
+              }}
+              eventTimeFormat={{
+                hour: '2-digit',
+                minute: '2-digit',
+                meridiem: false,
+                hour12: false
+              }}
+              eventContent={(eventInfo) => {
+                const event = eventInfo.event;
+                const isUserRegistered = event.extendedProps.isUserRegistered;
                 
-                {/* Bouton de synchronisation (plus discret) */}
-                <button
-                  onClick={() => {
-                    console.log("[DEBUG SYNC] Synchronisation forcée avec la base de données");
-                    
-                    // Appeler la fonction de synchronisation
-                    synchronizeWithDatabase();
-                    
-                    // Forcer le rafraîchissement des données
-                    mutate();
-                    
-                    // Notification
-                    notify.success("Synchronisation avec la base de données effectuée");
-                  }}
-                  className="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded hover:bg-gray-300 flex items-center ml-2"
-                  title="Forcer la synchronisation avec la base de données"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Actualiser
-                </button>
-              </div>
-              
-              {!isLoading && !error && events.length > 0 && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {searchTerm 
-                    ? `${filteredAndSortedEvents.length} événement(s) trouvé(s) sur ${events.length} au total` 
-                    : `${events.length} événement(s) au total`}
-                </p>
-              )}
-            </div>
-            
-            {/* Barre de recherche */}
-            <div className="w-full sm:w-64">
-              <TableSearch 
-                searchTerm={searchTerm} 
-                onSearchChange={setSearchTerm} 
-                placeholder="Rechercher un événement..."
-              />
-            </div>
+                return (
+                  <div className="flex items-center">
+                    {isUserRegistered && (
+                      <span className="inline-block w-2 h-2 bg-white rounded-full mr-1" title="Vous êtes inscrit"></span>
+                    )}
+                    <div>{event.title}</div>
+                  </div>
+                );
+              }}
+            />
           </div>
+        </div>
+        
+        {/* Tableau des événements à venir */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Événements à venir</h2>
           
           {isLoading ? (
-            <p>Chargement des événements...</p>
+            <p className="text-center py-4">Chargement des événements...</p>
           ) : error ? (
-            <p className="text-red-500">Erreur lors du chargement des événements</p>
-          ) : events.length === 0 ? (
-            <p>Aucun événement disponible</p>
+            <p className="text-center py-4 text-red-500">Erreur lors du chargement des événements</p>
+          ) : upcomingEvents.length === 0 ? (
+            <p className="text-center py-4 text-gray-500">Aucun événement à venir</p>
           ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('title')}
-                      >
-                        <div className="flex items-center">
-                          Événement
-                          <svg 
-                            className={`w-3 h-3 ml-1 ${getSortIndicator('title')}`} 
-                            aria-hidden="true" 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            fill="none" 
-                            viewBox="0 0 10 14"
-                          >
-                            <path 
-                              stroke="currentColor" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth="2" 
-                              d="M5 1v12m0 0 4-4m-4 4L1 9"
-                            />
-                          </svg>
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('start')}
-                      >
-                        <div className="flex items-center">
-                          Date
-                          <svg 
-                            className={`w-3 h-3 ml-1 ${getSortIndicator('start')}`} 
-                            aria-hidden="true" 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            fill="none" 
-                            viewBox="0 0 10 14"
-                          >
-                            <path 
-                              stroke="currentColor" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth="2" 
-                              d="M5 1v12m0 0 4-4m-4 4L1 9"
-                            />
-                          </svg>
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        <div className="flex items-center">
-                          Durée
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('location')}
-                      >
-                        <div className="flex items-center">
-                          Lieu
-                          <svg 
-                            className={`w-3 h-3 ml-1 ${getSortIndicator('location')}`} 
-                            aria-hidden="true" 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            fill="none" 
-                            viewBox="0 0 10 14"
-                          >
-                            <path 
-                              stroke="currentColor" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth="2" 
-                              d="M5 1v12m0 0 4-4m-4 4L1 9"
-                            />
-                          </svg>
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('type')}
-                      >
-                        <div className="flex items-center">
-                          Type
-                          <svg 
-                            className={`w-3 h-3 ml-1 ${getSortIndicator('type')}`} 
-                            aria-hidden="true" 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            fill="none" 
-                            viewBox="0 0 10 14"
-                          >
-                            <path 
-                              stroke="currentColor" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth="2" 
-                              d="M5 1v12m0 0 4-4m-4 4L1 9"
-                            />
-                          </svg>
-                        </div>
-                      </th>
-                      <th 
-                        scope="col" 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort('availableSpots')}
-                      >
-                        <div className="flex items-center">
-                          Places
-                          <svg 
-                            className={`w-3 h-3 ml-1 ${getSortIndicator('availableSpots')}`} 
-                            aria-hidden="true" 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            fill="none" 
-                            viewBox="0 0 10 14"
-                          >
-                            <path 
-                              stroke="currentColor" 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth="2" 
-                              d="M5 1v12m0 0 4-4m-4 4L1 9"
-                            />
-                          </svg>
-                        </div>
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedEvents.length > 0 ? (
-                      paginatedEvents.map((event) => (
-                        <tr key={event.id} className={`hover:bg-gray-50 relative ${loadingEventIds.includes(event.id) ? 'opacity-70' : ''}`}>
-                          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Événement
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Lieu
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Places disponibles
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {upcomingEvents.map((event) => {
+                    // Vérifier si l'utilisateur est inscrit à cet événement
+                    // Utiliser directement les données de l'événement pour une vérification précise
+                    const isUserRegistered = event.extendedProps.isUserRegistered;
+                    console.log(`Événement ${event.id} - Utilisateur inscrit (dans le rendu): ${isUserRegistered}`);
+                    
+                    const availableSpots = event.extendedProps.availableSpots;
+                    const isFullyBooked = availableSpots <= 0;
+                    
+                    // Formater la date
+                    const eventDate = new Date(event.start);
+                    const formattedDate = eventDate.toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                    
+                    return (
+                      <tr key={event.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: event.backgroundColor }}></div>
                             <div className="text-sm font-medium text-gray-900">{event.title}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{formatDateOnly(event.start)}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{calculateDuration(event.start, event.end)}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{event.extendedProps.location || 'Non précisé'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" style={{
-                              backgroundColor: `${event.backgroundColor}20`,
-                              color: event.backgroundColor
-                            }}>
-                              {event.extendedProps.type || 'Événement'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              {(() => {
-                                // Vérifier les deux formats possibles du champ
-                                const totalVolunteersNeeded = event.extendedProps.rawEvent?.ExpectedVolunteers || 
-                                                            event.extendedProps.rawEvent?.expectedVolunteers || 
-                                                            event.extendedProps.volunteersNeeded || 
-                                                            5;
-                                
-                                // Log pour déboguer
-                                if (event.extendedProps.rawEvent?._id === '68236383c4f5da564a83e6ab' || 
-                                    event.extendedProps.rawEvent?._id?.toString() === '68236383c4f5da564a83e6ab') {
-                                  console.log('AFFICHAGE TABLEAU - Événement avec ID 68236383c4f5da564a83e6ab:');
-                                  console.log('  ExpectedVolunteers:', event.extendedProps.rawEvent?.ExpectedVolunteers);
-                                  console.log('  expectedVolunteers:', event.extendedProps.rawEvent?.expectedVolunteers);
-                                  console.log('  volunteersNeeded:', event.extendedProps.volunteersNeeded);
-                                  console.log('  Total utilisé:', totalVolunteersNeeded);
-                                  console.log('  availableSpots stocké:', event.extendedProps.availableSpots);
-                                  console.log('  registeredVolunteers stocké:', event.extendedProps.registeredVolunteers);
-                                }
-                                
-                                // Utiliser les valeurs déjà calculées et stockées dans extendedProps
-                                // Cela garantit que nous utilisons les valeurs les plus à jour
-                                // IMPORTANT: Nous devons nous assurer de ne pas compter deux fois l'utilisateur actuel
-                                const volunteersCount = Array.isArray(event.extendedProps.rawEvent?.volunteers) 
-                                  ? event.extendedProps.rawEvent.volunteers.length 
-                                  : 0;
-                                
-                                const availableSpots = event.extendedProps.availableSpots !== undefined 
-                                  ? event.extendedProps.availableSpots 
-                                  : Math.max(0, totalVolunteersNeeded - volunteersCount);
-                                
-                                const isFullyBooked = availableSpots <= 0;
-                                
-                                return (
-                                  <span className={`px-2 py-1 inline-flex text-xs leading-4 font-semibold rounded-full ${
-                                    isFullyBooked 
-                                      ? 'bg-red-100 text-red-800' 
-                                      : 'bg-green-100 text-green-800'
-                                  }`}
-                                  data-testid={`available-spots-${event.id}`} // Ajouter un attribut pour les tests
-                                  >
-                                    {isFullyBooked ? 'Complet' : `${availableSpots}/${totalVolunteersNeeded}`}
-                                  </span>
-                                );
-                              })()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formattedDate}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {event.extendedProps.location || 'Non précisé'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-1 w-32">
+                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full rounded-full" 
+                                  style={{ 
+                                    width: `${(event.extendedProps.registeredVolunteers / event.extendedProps.volunteersNeeded) * 100}%`,
+                                    backgroundColor: isFullyBooked ? '#ef4444' : event.backgroundColor
+                                  }}
+                                ></div>
+                              </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center space-x-3">
-                              <button 
-                                className="text-primary-600 hover:text-primary-900"
-                                onClick={(e) => {
-                                  e.preventDefault(); // Empêcher le comportement par défaut
-                                  // S'assurer que les données brutes de l'événement sont correctement transmises
-                                  setSelectedEvent({ 
-                                    title: event.title, 
-                                    start: event.start,
-                                    extendedProps: {
-                                      ...event.extendedProps,
-                                      rawEvent: event.extendedProps.rawEvent
-                                    }
-                                  });
-                                  setIsEventModalOpen(true);
-                                }}
-                                type="button" // Spécifier explicitement le type pour éviter la soumission de formulaire
-                              >
-                                Détails
-                              </button>
-                              {(() => {
-                                  // Vérifier les deux formats possibles du champ
-                                  const totalVolunteersNeeded = event.extendedProps.rawEvent?.ExpectedVolunteers || 
-                                                              event.extendedProps.rawEvent?.expectedVolunteers || 
-                                                              event.extendedProps.volunteersNeeded || 
-                                                              5;
-                                  
-                                  // Log pour déboguer
-                                  if (event.extendedProps.rawEvent?._id === '68236383c4f5da564a83e6ab' || 
-                                      event.extendedProps.rawEvent?._id?.toString() === '68236383c4f5da564a83e6ab') {
-                                    console.log('AFFICHAGE TABLEAU - Événement avec ID 68236383c4f5da564a83e6ab:');
-                                    console.log('  ExpectedVolunteers:', event.extendedProps.rawEvent?.ExpectedVolunteers);
-                                    console.log('  expectedVolunteers:', event.extendedProps.rawEvent?.expectedVolunteers);
-                                    console.log('  volunteersNeeded:', event.extendedProps.volunteersNeeded);
-                                    console.log('  Total utilisé:', totalVolunteersNeeded);
-                                  }
-                                  // Utiliser les valeurs déjà calculées et stockées dans extendedProps
-                                  // Cela garantit que nous utilisons les valeurs les plus à jour
-                                  const availableSpots = event.extendedProps.availableSpots !== undefined 
-                                    ? event.extendedProps.availableSpots 
-                                    : Math.max(0, totalVolunteersNeeded - (Array.isArray(event.extendedProps.rawEvent?.volunteers) 
-                                        ? event.extendedProps.rawEvent.volunteers.length 
-                                        : 0));
-                                  
-                                  const isFullyBooked = availableSpots <= 0;
-                                  
-                                  // Vérifier si l'utilisateur est connecté
-                                if (!user || !user._id) {
-                                  return (
-                                    <button 
-                                      className="text-blue-600 hover:text-blue-900"
-                                      onClick={(e) => {
-                                        e.preventDefault(); // Empêcher le comportement par défaut
-                                        notify.info("Veuillez vous connecter pour vous inscrire à un événement.");
-                                      }}
-                                      type="button" // Spécifier explicitement le type pour éviter la soumission de formulaire
-                                    >
-                                      Connexion requise
-                                    </button>
-                                  );
-                                }
-                                
-                                // SOLUTION RADICALE: Vérifier UNIQUEMENT si l'utilisateur est dans le tableau des bénévoles
-                                const userIsRegistered = event.extendedProps?.rawEvent?.volunteers && 
-                                  Array.isArray(event.extendedProps.rawEvent.volunteers) &&
-                                  event.extendedProps.rawEvent.volunteers.some(id => 
-                                    user._id.toString() === id.toString()
-                                  );
-                                
-                                console.log(`[DEBUG RADICAL] État d'inscription pour l'événement ${event.id}: ${userIsRegistered}`);
-                                console.log(`[DEBUG RADICAL] Bénévoles de l'événement:`, event.extendedProps?.rawEvent?.volunteers);
-                                console.log(`[DEBUG RADICAL] ID de l'utilisateur: ${user._id}`);
-                                
-                                // Si l'événement est complet mais que l'utilisateur est déjà inscrit,
-                                // on lui permet quand même de se désinscrire
-                                // Si l'événement est complet et que l'utilisateur n'est pas inscrit,
-                                // on affiche quand même le bouton S'inscrire mais désactivé
-                                // Si l'utilisateur est déjà inscrit, le bouton S'inscrire ne devrait pas être cliquable
-                                // (mais de toute façon, on affiche le bouton Se désinscrire à la place)
-                                const isButtonDisabled = (isFullyBooked && !userIsRegistered) || userIsRegistered;
-                                
-                                const isLoading = loadingEventIds.includes(event.id);
-                                
-                                // Forcer une mise à jour de l'état d'inscription dans l'événement
-                                if (event.extendedProps && event.extendedProps.isUserRegistered !== userIsRegistered) {
-                                  // Mettre à jour l'événement de manière non-destructive
-                                  setTimeout(() => {
-                                    setEvents(prevEvents => {
-                                      return prevEvents.map(e => {
-                                        if (e.id === event.id) {
-                                          return {
-                                            ...e,
-                                            extendedProps: {
-                                              ...e.extendedProps,
-                                              isUserRegistered: userIsRegistered
-                                            }
-                                          };
-                                        }
-                                        return e;
-                                      });
-                                    });
-                                  }, 0);
-                                }
-                                
-                                return userIsRegistered ? (
-                                  <button 
-                                    className={`flex items-center ${isLoading ? 'bg-red-100 px-2 py-1 rounded' : 'text-red-600 hover:text-red-900'}`}
-                                    onClick={(e) => {
-                                      e.preventDefault(); // Empêcher le comportement par défaut
-                                      handleUnregisterFromEvent(event.id);
-                                    }}
-                                    disabled={isLoading}
-                                    type="button" // Spécifier explicitement le type pour éviter la soumission de formulaire
-                                    data-testid={`unregister-button-${event.id}`} // Ajouter un attribut pour les tests
-                                  >
-                                    {isLoading ? (
-                                      <>
-                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Désinscription en cours...
-                                      </>
-                                    ) : 'Se désinscrire'}
-                                  </button>
-                                ) : (
-                                  <button 
-                                    className={`flex items-center ${
-                                      isLoading 
-                                        ? 'bg-green-100 px-2 py-1 rounded' 
-                                        : isButtonDisabled 
-                                          ? 'text-gray-400 cursor-not-allowed' 
-                                          : 'text-green-600 hover:text-green-900'
-                                    }`}
-                                    data-testid={`register-button-${event.id}`} // Ajouter un attribut pour les tests
-                                    onClick={(e) => {
-                                      e.preventDefault(); // Empêcher le comportement par défaut
-                                      if (!isButtonDisabled) {
-                                        handleRegisterForEvent(event.id);
-                                      }
-                                    }}
-                                    disabled={isLoading || isButtonDisabled}
-                                    type="button" // Spécifier explicitement le type pour éviter la soumission de formulaire
-                                  >
-                                    {isLoading ? (
-                                      <>
-                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Inscription en cours...
-                                      </>
-                                    ) : 'S\'inscrire'}
-                                  </button>
-                                );
-                                })()}
+                            <div className="ml-2 text-sm font-medium">
+                              {isFullyBooked ? (
+                                <span className="text-red-500">Complet</span>
+                              ) : (
+                                <span>
+                                  <span className="text-green-600">{availableSpots}</span> / {event.extendedProps.volunteersNeeded}
+                                </span>
+                              )}
                             </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                          Aucun événement trouvé
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {isUserRegistered ? (
+                            <button
+                              onClick={() => handleUnregisterFromEvent(event.id)}
+                              className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-full transition-colors"
+                            >
+                              Se désinscrire
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRegisterForEvent(event.id)}
+                              disabled={isFullyBooked}
+                              className={`${
+                                isFullyBooked 
+                                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                                  : 'text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100'
+                              } px-3 py-1 rounded-full transition-colors`}
+                            >
+                              {isFullyBooked ? 'Complet' : 'S\'inscrire'}
+                            </button>
+                          )}
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Pagination */}
-              {filteredAndSortedEvents.length > 0 && (
-                <TablePagination 
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                  itemsPerPage={itemsPerPage}
-                  onItemsPerPageChange={setItemsPerPage}
-                  totalItems={filteredAndSortedEvents.length}
-                />
-              )}
-            </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-          
-          <div className="mt-4 text-right">
-            <Link href="/volunteer-participations" className="text-primary-600 hover:text-primary-800 font-medium">
-              Voir toutes mes participations →
-            </Link>
-          </div>
+        </div>
+
+        <div className="mt-4 text-right">
+          <Link href="/volunteer-participations" className="text-primary-600 hover:text-primary-800 font-medium">
+            Voir toutes mes participations →
+          </Link>
         </div>
       </div>
       
       {/* Modal de détails d'événement */}
-      <EventDetailsModal 
-        isOpen={isEventModalOpen} 
-        onClose={() => setIsEventModalOpen(false)} 
+      <EventDetailsModal
+        isOpen={isEventModalOpen}
+        onClose={() => setIsEventModalOpen(false)}
         event={selectedEvent}
-      />
-      
-      {/* Container pour les notifications toast */}
-      <ToastContainer 
-        position="bottom-right"
-        autoClose={3000}
-        closeButton={true}
       />
     </VolunteerLayout>
   );
