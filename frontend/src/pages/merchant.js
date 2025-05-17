@@ -99,6 +99,14 @@ const MerchantDashboard = () => {
       const allEvents = await getEvents();
       console.log('Tous les événements récupérés:', allEvents);
       
+      // Afficher la structure détaillée pour le débogage
+      console.log('Structure de la réponse:', {
+        type: typeof allEvents,
+        isArray: Array.isArray(allEvents),
+        length: allEvents ? (Array.isArray(allEvents) ? allEvents.length : 'non-array') : 'null',
+        sample: allEvents && Array.isArray(allEvents) && allEvents.length > 0 ? allEvents[0] : 'no sample'
+      });
+      
       if (!allEvents || !Array.isArray(allEvents)) {
         console.error('Format de données invalide:', allEvents);
         toast.error('Format de données invalide');

@@ -50,15 +50,30 @@ export const getEvents = async () => {
       const response = await api.get('/api/events');
       console.log('Réponse API événements:', response);
       
-      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-        // Si l'API retourne des données valides, les utiliser
-        console.log(`${response.data.length} événements récupérés avec succès depuis l'API`);
-        return response.data;
-      } else {
-        // Sinon, utiliser les données de test
-        console.warn('Aucune donnée valide reçue de l\'API, utilisation des données de test');
-        return testEvents;
+      // Vérifier si la réponse contient des données dans le format attendu
+      if (response.data) {
+        // Vérifier si les données sont directement dans response.data ou dans response.data.data
+        let eventsData = [];
+        
+        if (Array.isArray(response.data)) {
+          // Format: response.data est directement le tableau d'événements
+          eventsData = response.data;
+          console.log(`${eventsData.length} événements récupérés directement depuis response.data`);
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // Format: response.data.data est le tableau d'événements (format standard API)
+          eventsData = response.data.data;
+          console.log(`${eventsData.length} événements récupérés depuis response.data.data`);
+        }
+        
+        if (eventsData.length > 0) {
+          // Si nous avons des données valides, les utiliser
+          return eventsData;
+        }
       }
+      
+      // Si aucune donnée valide n'a été trouvée, utiliser les données de test
+      console.warn('Aucune donnée valide reçue de l\'API, utilisation des données de test');
+      return testEvents;
     } catch (apiError) {
       // En cas d'erreur API, utiliser les données de test
       console.error('Erreur lors de l\'appel API:', apiError);
