@@ -55,7 +55,14 @@ export default function MerchantSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const router = useRouter();
 
-  const menuItems = [
+  // Icône pour les dons
+const DonationsIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a4 4 0 112.76 3.77c.08-.65.14-1.3.14-1.77V6a4 4 0 00-8 0v7H4.5m8 5l-5-5m0 0l5-5m-5 5h10" />
+  </svg>
+);
+
+const menuItems = [
     {
       name: 'Dashboard',
       icon: <DashboardIcon />,
@@ -70,6 +77,11 @@ export default function MerchantSidebar() {
       name: 'Collectes',
       icon: <CollectionsIcon />,
       path: '/merchant/collections',
+    },
+    {
+      name: 'Mes Dons',
+      icon: <DonationsIcon />,
+      path: '/merchant-donations',
     },
     {
       name: 'Statistiques',

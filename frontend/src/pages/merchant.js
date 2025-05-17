@@ -220,10 +220,16 @@ const MerchantDashboard = () => {
     try {
       await createDonation(donationData);
       toast.success('Votre don a été enregistré avec succès');
-      setIsDonationModalOpen(false);
     } catch (error) {
       console.error('Erreur lors de l\'enregistrement du don:', error);
       toast.error('Impossible d\'enregistrer votre don');
+    } finally {
+      // Toujours fermer le modal, même en cas d'erreur
+      setIsDonationModalOpen(false);
+      // Réinitialiser l'événement sélectionné après un court délai
+      setTimeout(() => {
+        setSelectedEvent(null);
+      }, 100);
     }
   };
   
@@ -290,7 +296,13 @@ const MerchantDashboard = () => {
       {/* Modal de donation */}
       <DonationModal 
         isOpen={isDonationModalOpen}
-        onClose={() => setIsDonationModalOpen(false)}
+        onClose={() => {
+          setIsDonationModalOpen(false);
+          // Ajouter un petit délai avant de réinitialiser l'événement sélectionné
+          setTimeout(() => {
+            setSelectedEvent(null);
+          }, 100);
+        }}
         event={selectedEvent}
         onSubmit={handleDonationSubmit}
       />
@@ -425,16 +437,6 @@ const MerchantDashboard = () => {
             >
               Réinitialiser les filtres
             </button>
-            <button
-              onClick={addTestEvent}
-              className="px-6 py-3 text-lg bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors flex items-center font-medium shadow-sm"
-              title="Ajouter un événement de test pour déboguer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Test
-            </button>
           </div>
           
           {/* Tableau */}
@@ -451,11 +453,8 @@ const MerchantDashboard = () => {
                   <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-[20%]">
                     Lieu
                   </th>
-                  <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-[38%] hidden md:table-cell">
+                  <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-[46%] hidden md:table-cell">
                     Description
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-[8%] hidden sm:table-cell">
-                    Bénévoles
                   </th>
                   <th scope="col" className="px-6 py-4 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-[7%]">
                     Actions
@@ -465,7 +464,7 @@ const MerchantDashboard = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {eventsLoading ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-8 text-center">
+                    <td colSpan="5" className="px-6 py-8 text-center">
                       <div className="flex justify-center items-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mr-3"></div>
                         <span className="text-gray-600 text-base">Chargement des événements...</span>
@@ -491,11 +490,6 @@ const MerchantDashboard = () => {
                           {event.description || "Non spécifié"}
                         </div>
                       </td>
-                      <td className="px-6 py-5 hidden sm:table-cell text-center">
-                        <div className="text-base text-gray-500 font-medium">
-                          {event.volunteers?.length || 0}/{event.expectedVolunteers || 1}
-                        </div>
-                      </td>
                       <td className="px-6 py-5 text-center">
                         <button 
                           className="px-3 py-2 bg-primary-600 text-white text-base font-medium rounded-md hover:bg-primary-700 transition-colors whitespace-nowrap"
@@ -508,7 +502,7 @@ const MerchantDashboard = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-6 py-4 text-center text-base text-gray-500">
+                    <td colSpan="5" className="px-6 py-4 text-center text-base text-gray-500">
                       Aucun événement de collecte trouvé
                     </td>
                   </tr>

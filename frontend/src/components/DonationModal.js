@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 
 const DonationModal = ({ isOpen, onClose, event, onSubmit }) => {
@@ -6,6 +6,14 @@ const DonationModal = ({ isOpen, onClose, event, onSubmit }) => {
     { id: 1, product: '', quantity: 1, unit: 'kg' }
   ]);
   const [note, setNote] = useState('');
+  
+  // Réinitialiser le formulaire lorsque le modal s'ouvre
+  useEffect(() => {
+    if (isOpen) {
+      setDonations([{ id: 1, product: '', quantity: 1, unit: 'kg' }]);
+      setNote('');
+    }
+  }, [isOpen]);
 
   // Ajouter un nouvel article
   const addItem = () => {
@@ -31,19 +39,29 @@ const DonationModal = ({ isOpen, onClose, event, onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Filtrer les articles vides
-    const validDonations = donations.filter(item => item.product.trim() !== '');
-    
-    if (validDonations.length === 0) {
-      alert('Veuillez ajouter au moins un article à donner');
-      return;
+    try {
+      // Filtrer les articles vides
+      const validDonations = donations.filter(item => item.product.trim() !== '');
+      
+      if (validDonations.length === 0) {
+        alert('Veuillez ajouter au moins un article à donner');
+        return;
+      }
+      
+      // Préparer les données à soumettre
+      const donationData = {
+        eventId: event?._id,
+        donations: validDonations,
+        note
+      };
+      
+      // Appeler la fonction de soumission
+      onSubmit(donationData);
+    } catch (error) {
+      console.error('Erreur lors de la soumission du formulaire de don:', error);
+      // Fermer le modal même en cas d'erreur
+      onClose();
     }
-    
-    onSubmit({
-      eventId: event?._id,
-      donations: validDonations,
-      note
-    });
   };
 
   return (
@@ -147,7 +165,12 @@ const DonationModal = ({ isOpen, onClose, event, onSubmit }) => {
         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button
             type="button"
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Fermer le modal
+              onClose();
+            }}
             className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
           >
             Annuler

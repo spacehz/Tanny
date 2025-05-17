@@ -17,7 +17,7 @@ const Layout = ({ children }) => {
   }, []);
   
   // Déterminer quel sidebar afficher en fonction du chemin ou du rôle de l'utilisateur
-  const isMerchantPage = router.pathname.startsWith('/merchant');
+  const isMerchantPage = router.pathname.startsWith('/merchant') || router.pathname === '/merchant-donations';
   const isAdminPage = router.pathname.startsWith('/admin');
   
   // Fonction pour déterminer si l'utilisateur est un commerçant (avec vérification plus robuste)

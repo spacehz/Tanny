@@ -2,13 +2,18 @@ import api from './api';
 
 /**
  * Récupère toutes les donations d'un commerçant
+ * @param {Object} options - Options de pagination
+ * @param {number} options.page - Numéro de page
+ * @param {number} options.limit - Nombre d'éléments par page
  * @returns {Promise} Promesse contenant les données des donations
  */
-export const getMerchantDonations = async () => {
+export const getMerchantDonations = async (options = {}) => {
   try {
-    const response = await api.get('/api/donations/merchant');
+    const { page = 1, limit = 10 } = options;
+    const response = await api.get(`/api/donations/merchant?page=${page}&limit=${limit}`);
     return response.data;
   } catch (error) {
+    console.error('Erreur lors de la récupération des donations:', error);
     throw error;
   }
 };
@@ -34,26 +39,22 @@ export const getDonationById = async (id) => {
  */
 export const createDonation = async (donationData) => {
   try {
-    // Simulation de l'API pour le moment
     console.log('Données de donation envoyées:', donationData);
     
-    // Simuler un délai de traitement
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simuler une réponse réussie
-    return {
-      success: true,
-      message: 'Donation enregistrée avec succès',
-      data: {
-        ...donationData,
-        _id: 'donation_' + Date.now(),
-        createdAt: new Date().toISOString()
-      }
+    // Transformation des données pour correspondre au format attendu par l'API
+    const apiDonationData = {
+      eventId: donationData.eventId,
+      items: donationData.donations.map(item => ({
+        product: item.product,
+        quantity: item.quantity,
+        unit: item.unit
+      })),
+      note: donationData.note || ''
     };
     
-    // Décommenter cette ligne quand l'API sera prête
-    // const response = await api.post('/api/donations', donationData);
-    // return response.data;
+    // Appel à l'API réelle
+    const response = await api.post('/api/donations', apiDonationData);
+    return response.data;
   } catch (error) {
     console.error('Erreur lors de la création de la donation:', error);
     throw error;

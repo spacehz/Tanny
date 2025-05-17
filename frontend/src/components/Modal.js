@@ -5,11 +5,16 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
 
   // Empêcher le défilement du body quand le modal est ouvert
   useEffect(() => {
+    // Sauvegarder le style d'overflow original
+    const originalOverflow = document.body.style.overflow;
+    
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     }
+    
     return () => {
-      document.body.style.overflow = 'auto';
+      // Restaurer le style d'overflow original
+      document.body.style.overflow = originalOverflow || 'auto';
     };
   }, [isOpen]);
 
@@ -26,6 +31,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
     }
 
     return () => {
+      // S'assurer que l'écouteur d'événement est toujours supprimé
       window.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen, onClose]);
@@ -64,6 +70,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
         className={`bg-white rounded-xl shadow-xl z-[102] ${getModalWidth()} w-full max-h-[90vh] m-4 transition-all transform animate-modalFadeIn relative flex flex-col`}
         onClick={handleModalContentClick}
       >
+
         {/* En-tête du modal (fixe) */}
         <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
           {title && <h2 className="text-xl font-bold text-gray-800">{title}</h2>}
