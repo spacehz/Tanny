@@ -9,6 +9,8 @@ const Layout = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  // Initialize with sidebar collapsed
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   
   // Effet pour s'assurer que le composant est correctement monté côté client
   useEffect(() => {
@@ -32,6 +34,11 @@ const Layout = ({ children }) => {
 
   // Déterminer si une sidebar est visible
   const hasSidebar = isAuthenticated && ((isMerchantPage || userIsMerchant) || (isAdminPage || userIsAdmin));
+  
+  // Fonction pour gérer l'état de collapse du sidebar
+  const handleSidebarCollapse = (collapsed) => {
+    setSidebarCollapsed(collapsed);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -41,15 +48,20 @@ const Layout = ({ children }) => {
       {isAuthenticated && mounted && (
         <>
           {/* Afficher la barre latérale du commerçant si on est sur une page merchant */}
-          {isMerchantPage && <MerchantSidebar key="merchant-sidebar" />}
+          {isMerchantPage && <MerchantSidebar key="merchant-sidebar" onCollapse={handleSidebarCollapse} />}
           {/* Afficher la barre latérale admin si on est sur une page admin */}
-          {isAdminPage && <Sidebar key="admin-sidebar" />}
+          {isAdminPage && <Sidebar key="admin-sidebar" onCollapse={handleSidebarCollapse} />}
         </>
       )}
       
-      {/* Contenu principal avec marge à gauche si sidebar présente */}
-      <div className="pt-16"> {/* Espace pour le header fixe */}
-        <main className={`min-h-screen ${hasSidebar ? 'md:ml-64' : ''}`}>
+      {/* Contenu principal avec marge à gauche dynamique basée sur l'état du sidebar */}
+      <div className="pt-14"> {/* Espace pour le header fixe */}
+        <main 
+          className="min-h-screen transition-all duration-300"
+          style={{ 
+            marginLeft: hasSidebar ? (sidebarCollapsed ? '60px' : '220px') : '0' 
+          }}
+        >
           {children}
         </main>
       </div>

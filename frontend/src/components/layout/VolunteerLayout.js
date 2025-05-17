@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import VolunteerSidebar from '../VolunteerSidebar';
@@ -8,6 +8,13 @@ import Footer from './Footer';
 export default function VolunteerLayout({ children }) {
   const router = useRouter();
   const { user, loading, isVolunteer } = useAuth();
+  // Initialize with sidebar collapsed
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  
+  // Fonction pour gérer l'état de collapse du sidebar
+  const handleSidebarCollapse = (collapsed) => {
+    setSidebarCollapsed(collapsed);
+  };
   
   // Vérification de l'authentification et du rôle bénévole
   useEffect(() => {
@@ -37,8 +44,11 @@ export default function VolunteerLayout({ children }) {
     <div className="flex flex-col min-h-screen">
       <Header />
       <div className="flex flex-1">
-        <VolunteerSidebar />
-        <div className="volunteer-content flex-grow transition-all duration-300" style={{ marginLeft: '250px' }}>
+        <VolunteerSidebar onCollapse={handleSidebarCollapse} />
+        <div 
+          className="volunteer-content flex-grow transition-all duration-300" 
+          style={{ marginLeft: sidebarCollapsed ? '60px' : '220px' }}
+        >
           <main className="p-6">
             {children}
           </main>

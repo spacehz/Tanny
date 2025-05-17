@@ -226,10 +226,10 @@ const MerchantDashboard = () => {
     } finally {
       // Toujours fermer le modal, même en cas d'erreur
       setIsDonationModalOpen(false);
-      // Réinitialiser l'événement sélectionné après un court délai
-      setTimeout(() => {
-        setSelectedEvent(null);
-      }, 100);
+      // Réinitialiser l'événement sélectionné immédiatement
+      setSelectedEvent(null);
+      // S'assurer que le défilement est restauré
+      document.body.style.overflow = 'auto';
     }
   };
   
@@ -297,11 +297,12 @@ const MerchantDashboard = () => {
       <DonationModal 
         isOpen={isDonationModalOpen}
         onClose={() => {
+          // Fermer le modal
           setIsDonationModalOpen(false);
-          // Ajouter un petit délai avant de réinitialiser l'événement sélectionné
-          setTimeout(() => {
-            setSelectedEvent(null);
-          }, 100);
+          // Réinitialiser l'événement sélectionné immédiatement
+          setSelectedEvent(null);
+          // S'assurer que le défilement est restauré
+          document.body.style.overflow = 'auto';
         }}
         event={selectedEvent}
         onSubmit={handleDonationSubmit}

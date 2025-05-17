@@ -10,11 +10,14 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
     
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+    } else {
+      // Restaurer le style d'overflow quand le modal est fermé
+      document.body.style.overflow = 'auto';
     }
     
     return () => {
-      // Restaurer le style d'overflow original
-      document.body.style.overflow = originalOverflow || 'auto';
+      // Restaurer le style d'overflow original lors du démontage du composant
+      document.body.style.overflow = 'auto';
     };
   }, [isOpen]);
 

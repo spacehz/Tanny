@@ -111,20 +111,22 @@
   
   /* Styles pour les sidebars */
   .admin-sidebar,
-  .merchant-sidebar {
-    width: 256px;
+  .merchant-sidebar,
+  .volunteer-sidebar {
+    width: 220px;
     transition: width 0.3s ease, transform 0.3s ease;
     z-index: 10;
     height: 100vh; /* Assure que la sidebar prend toute la hauteur de la fenêtre */
     position: fixed;
     left: 0;
     top: 0;
-    padding-top: 4rem; /* Pour laisser de l'espace pour le header */
+    padding-top: 3.5rem; /* Pour laisser de l'espace pour le header */
   }
   
   .admin-sidebar.collapsed,
-  .merchant-sidebar.collapsed {
-    width: 64px;
+  .merchant-sidebar.collapsed,
+  .volunteer-sidebar.collapsed {
+    width: 60px;
   }
   
   @media (max-width: 768px) {

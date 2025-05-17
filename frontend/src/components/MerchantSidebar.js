@@ -33,13 +33,21 @@ const ProfileIcon = () => (
   </svg>
 );
 
-const MenuIcon = () => (
+// Menu icon for collapsed state (hamburger)
+const MenuIconCollapsed = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
   </svg>
 );
 
-export default function MerchantSidebar() {
+// Menu icon for expanded state (chevron-left)
+const MenuIconExpanded = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+export default function MerchantSidebar({ onCollapse }) {
   // État pour suivre si le composant est monté
   const [mounted, setMounted] = useState(false);
   
@@ -52,8 +60,16 @@ export default function MerchantSidebar() {
       setMounted(false);
     };
   }, []);
-  const [collapsed, setCollapsed] = useState(false);
+  // Set collapsed to true by default
+  const [collapsed, setCollapsed] = useState(true);
   const router = useRouter();
+  
+  // Notifier le parent quand l'état de collapse change
+  useEffect(() => {
+    if (onCollapse) {
+      onCollapse(collapsed);
+    }
+  }, [collapsed, onCollapse]);
 
   // Icône pour les dons
 const DonationsIcon = () => (
@@ -97,20 +113,20 @@ const menuItems = [
 
   return (
     <div 
-      className={`merchant-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-full min-h-screen fixed left-0 top-0 pt-16 transition-all duration-300 w-64`}
+      className={`merchant-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-full min-h-screen fixed left-0 top-0 transition-all duration-300`}
     >
-      <div className="flex justify-between items-center p-4 border-b border-primary-600">
-        <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>
-          <Link href="/merchant" className="text-xl font-bold">
-            Espace Commerçant
+      <div className="flex justify-between items-center p-3 border-b border-primary-600">
+        <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300 flex-1`}>
+          <Link href="/merchant" className="text-lg font-bold leading-tight">
+            Espace<br />Commerçant
           </Link>
         </div>
         <button 
           onClick={() => setCollapsed(!collapsed)} 
-          className="p-2 rounded-md hover:bg-primary-600 transition-colors"
+          className={`p-2 rounded-md hover:bg-primary-600 transition-colors ${collapsed ? 'w-full flex justify-center' : ''}`}
           aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
         >
-          <MenuIcon />
+          {collapsed ? <MenuIconCollapsed /> : <MenuIconExpanded />}
         </button>
       </div>
 
@@ -131,7 +147,7 @@ const menuItems = [
                   }`}
                 >
                   <span className="mr-3">{item.icon}</span>
-                  <span className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>
+                  <span className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300 text-base whitespace-normal`}>
                     {item.name}
                   </span>
                 </Link>

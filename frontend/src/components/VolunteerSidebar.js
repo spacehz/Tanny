@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
@@ -15,15 +15,31 @@ const ParticipationsIcon = () => (
   </svg>
 );
 
-const MenuIcon = () => (
+// Menu icon for collapsed state (hamburger)
+const MenuIconCollapsed = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
   </svg>
 );
 
-export default function VolunteerSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+// Menu icon for expanded state (chevron-left)
+const MenuIconExpanded = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+export default function VolunteerSidebar({ onCollapse }) {
+  // Set collapsed to true by default
+  const [collapsed, setCollapsed] = useState(true);
   const router = useRouter();
+  
+  // Notifier le parent quand l'état de collapse change
+  useEffect(() => {
+    if (onCollapse) {
+      onCollapse(collapsed);
+    }
+  }, [collapsed, onCollapse]);
 
   const menuItems = [
     {
@@ -41,20 +57,19 @@ export default function VolunteerSidebar() {
   return (
     <div 
       className={`volunteer-sidebar ${collapsed ? 'collapsed' : ''} bg-primary-700 text-white h-screen fixed left-0 top-0 z-10 transition-all duration-300`}
-      style={{ width: collapsed ? '70px' : '250px' }}
     >
-      <div className="flex justify-between items-center p-4 border-b border-primary-600">
-        <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>
-          <Link href="/volunteer" className="text-xl font-bold">
-            TANY Bénévole
+      <div className="flex justify-between items-center p-3 border-b border-primary-600">
+        <div className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300 flex-1`}>
+          <Link href="/volunteer" className="text-lg font-bold leading-tight">
+            TANY<br />Bénévole
           </Link>
         </div>
         <button 
           onClick={() => setCollapsed(!collapsed)} 
-          className="p-2 rounded-md hover:bg-primary-600 transition-colors"
+          className={`p-2 rounded-md hover:bg-primary-600 transition-colors ${collapsed ? 'w-full flex justify-center' : ''}`}
           aria-label={collapsed ? "Déplier le menu" : "Replier le menu"}
         >
-          <MenuIcon />
+          {collapsed ? <MenuIconCollapsed /> : <MenuIconExpanded />}
         </button>
       </div>
 
@@ -75,7 +90,7 @@ export default function VolunteerSidebar() {
                   }`}
                 >
                   <span className="mr-3">{item.icon}</span>
-                  <span className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300`}>
+                  <span className={`${collapsed ? 'hidden' : 'block'} transition-opacity duration-300 text-base whitespace-normal`}>
                     {item.name}
                   </span>
                 </Link>

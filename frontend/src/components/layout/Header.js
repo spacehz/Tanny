@@ -25,17 +25,17 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-primary-600 text-white fixed top-0 left-0 right-0 z-20 h-16">
+    <header className="bg-primary-600 text-white fixed top-0 left-0 right-0 z-20 h-14">
       {/* Modal d'inscription */}
       <RegisterModal 
         isOpen={showRegisterModal} 
         onClose={() => setShowRegisterModal(false)} 
       />
       
-      <div className="max-w-7xl mx-auto px-4 py-3">
+      <div className="max-w-full mx-auto px-6 py-2">
         <div className="flex justify-between items-center">
           {/* Logo - Sans ajustement de marge, car nous gérons l'alignement dans Layout */}
-          <Link href="/" className="text-xl font-bold">
+          <Link href="/" className="text-2xl font-bold">
             TANY
           </Link>
 
