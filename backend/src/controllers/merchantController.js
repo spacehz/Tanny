@@ -11,7 +11,8 @@ const createMerchant = asyncHandler(async (req, res) => {
     email,
     phoneNumber,
     siret,
-    address
+    address,
+    password
   } = req.body;
 
   const merchantExists = await Merchant.findOne({ siret });
@@ -27,7 +28,8 @@ const createMerchant = asyncHandler(async (req, res) => {
     email,
     phoneNumber,
     siret,
-    address
+    address,
+    password
   });
 
   if (merchant) {
@@ -116,6 +118,10 @@ const updateMerchant = asyncHandler(async (req, res) => {
     merchant.siret = req.body.siret || merchant.siret;
     merchant.address = req.body.address || merchant.address;
     merchant.isActive = req.body.isActive !== undefined ? req.body.isActive : merchant.isActive;
+    
+    if (req.body.password) {
+      merchant.password = req.body.password;
+    }
 
     const updatedMerchant = await merchant.save();
     res.json(updatedMerchant);

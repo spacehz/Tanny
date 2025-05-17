@@ -84,6 +84,11 @@ export const AuthProvider = ({ children }) => {
       console.log('Utilisateur:', data.user);
       console.log('Rôle de l\'utilisateur:', data.user?.role);
       
+      // Stocker l'utilisateur dans localStorage pour persistance
+      if (data.user) {
+        localStorage.setItem('userInfo', JSON.stringify(data.user));
+      }
+      
       // Stocker l'utilisateur dans l'état
       setUser(data.user);
       toast.success('Connexion effectuée avec succès');
@@ -93,7 +98,7 @@ export const AuthProvider = ({ children }) => {
         console.log('Redirection basée sur le rôle:', data.user.role);
         
         // Standardiser les noms de rôles
-        const role = data.user.role.toLowerCase();
+        const role = data.user.role ? data.user.role.toLowerCase() : '';
         
         if (role === 'admin') {
           // Redirection pour les administrateurs
@@ -167,7 +172,7 @@ export const AuthProvider = ({ children }) => {
 
   // Vérifier si l'utilisateur est marchand
   const isMerchant = () => {
-    return user && (user.role === 'merchant' || user.role === 'admin');
+    return user && (user.role === 'merchant' || user.role === 'commercant' || user.role === 'commerçant' || user.role === 'admin');
   };
 
   // Vérifier si l'utilisateur est bénévole

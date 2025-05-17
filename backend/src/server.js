@@ -8,6 +8,7 @@ const connectDB = require('./config/database');
 const userRoutes = require('./routes/userRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const merchantRoutes = require('./routes/merchantRoutes');
+const merchantAuthRoutes = require('./routes/merchantAuthRoutes');
 
 // Chargement des variables d'environnement
 dotenv.config();
@@ -34,7 +35,9 @@ app.use((req, res, next) => {
   if (
     req.path === '/api/users/login' || 
     req.path === '/api/users/register' || 
-    req.path === '/api/users/refresh-token'
+    req.path === '/api/users/refresh-token' ||
+    req.path === '/api/merchants/auth/login' ||
+    req.path === '/api/merchants/auth/refresh-token'
   ) {
     return next();
   }
@@ -61,6 +64,7 @@ app.get('/api/csrf-token', csrfProtection, (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/merchants', merchantRoutes);
+app.use('/api/merchants/auth', merchantAuthRoutes);
 
 // Route de base
 app.get('/', (req, res) => {

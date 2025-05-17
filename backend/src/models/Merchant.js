@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const merchantSchema = new mongoose.Schema(
   {
@@ -49,6 +50,12 @@ const merchantSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    password: {
+      type: String,
+      required: [true, 'Veuillez fournir un mot de passe'],
+      minlength: [4, 'Le mot de passe doit contenir au moins 4 caractères'],
+      select: false,
+    },
     address: {
       street: {
         type: String,
@@ -73,6 +80,30 @@ const merchantSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Middleware pour hacher le mot de passe avant de sauvegarder
+merchantSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    next();
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Méthode pour comparer les mots de passe
+merchantSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) {
+    console.error('Pas de mot de passe disponible pour la comparaison');
+    return false;
+  }
+  try {
+    return await bcrypt.compare(enteredPassword, this.password);
+  } catch (error) {
+    console.error('Erreur lors de la comparaison du mot de passe:', error);
+    return false;
+  }
+};
 
 const Merchant = mongoose.model('Merchant', merchantSchema);
 

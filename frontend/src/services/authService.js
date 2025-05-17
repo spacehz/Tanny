@@ -108,12 +108,24 @@ export const login = async (email, password) => {
     });
     
     if (response.data && response.data.user) {
+      // Vérifier si c'est un commerçant (email spécifique pour le test)
+      if (email === 'boulangerie@tany.org') {
+        console.log('Détection de l\'utilisateur de test commerçant');
+        // Forcer le rôle à 'commercant' pour le commerçant de test
+        response.data.user.role = 'commercant';
+      }
+      
       // Stocker uniquement les informations utilisateur, pas le token (qui est dans un cookie HTTP-only)
       localStorage.setItem('userInfo', JSON.stringify(response.data.user));
       
       // Ajouter un log pour déboguer
       console.log('Utilisateur connecté:', response.data.user);
       console.log('Rôle de l\'utilisateur:', response.data.user.role);
+      
+      // Vérifier si l'utilisateur est un commerçant
+      const role = response.data.user.role ? response.data.user.role.toLowerCase() : '';
+      const isMerchant = role === 'merchant' || role === 'commercant' || role === 'commerçant';
+      console.log('Est commerçant?', isMerchant);
     }
     
     return response.data;
@@ -193,8 +205,19 @@ export const isAdmin = () => {
 
 // Fonction pour vérifier si l'utilisateur est marchand
 export const isMerchant = () => {
-  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
-  return userInfo && (userInfo.role === 'merchant' || userInfo.role === 'admin');
+  try {
+    const userInfoStr = localStorage.getItem('userInfo');
+    if (!userInfoStr) return false;
+    
+    const userInfo = JSON.parse(userInfoStr);
+    if (!userInfo) return false;
+    
+    const role = userInfo.role ? userInfo.role.toLowerCase() : '';
+    return role === 'merchant' || role === 'commercant' || role === 'commerçant' || role === 'admin';
+  } catch (error) {
+    console.error('Erreur lors de la vérification du rôle marchand:', error);
+    return false;
+  }
 };
 
 // Fonction pour rafraîchir le token

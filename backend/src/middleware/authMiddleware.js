@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Merchant = require('../models/Merchant');
 
 // Middleware pour protéger les routes
 exports.protect = async (req, res, next) => {
@@ -25,8 +26,34 @@ exports.protect = async (req, res, next) => {
     // Vérifier le token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_dev_key');
 
+    // Chercher d'abord dans le modèle User
+    let user = await User.findById(decoded.id).select('-password');
+    let isMerchant = false;
+    
+    // Si non trouvé, chercher dans le modèle Merchant
+    if (!user) {
+      user = await Merchant.findById(decoded.id).select('-password');
+      // Si c'est un commerçant, ajouter le rôle 'commercant' pour la compatibilité
+      if (user) {
+        isMerchant = true;
+        // Créer un objet utilisateur compatible avec le reste de l'application
+        user = {
+          _id: user._id,
+          email: user.email,
+          businessName: user.businessName,
+          role: 'commercant',
+          // Ajouter d'autres propriétés nécessaires
+          isMerchant: true
+        };
+      }
+    }
+    
+    if (!user) {
+      return res.status(401).json({ message: 'Utilisateur non trouvé' });
+    }
+    
     // Ajouter l'utilisateur à la requête
-    req.user = await User.findById(decoded.id).select('-password');
+    req.user = user;
 
     next();
   } catch (error) {
