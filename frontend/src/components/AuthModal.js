@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
 
@@ -8,6 +9,8 @@ const AuthModal = ({ isOpen, onClose, requiredRole }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const router = useRouter();
+  const { redirect } = router.query;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,8 +18,21 @@ const AuthModal = ({ isOpen, onClose, requiredRole }) => {
     setIsLoading(true);
     
     try {
-      await login(email, password);
+      const data = await login(email, password);
       onClose();
+      
+      // Redirection après connexion réussie si un rôle spécifique était requis
+      if (data && data.user) {
+        if (requiredRole === 'admin' && data.user.role === 'admin') {
+          router.push('/admin');
+        } else if (requiredRole === 'volunteer' && 
+                  (data.user.role === 'volunteer' || data.user.role === 'bénévole' || data.user.role === 'admin')) {
+          router.push(redirect || '/volunteer');
+        } else if (requiredRole === 'merchant' && 
+                  (data.user.role === 'merchant' || data.user.role === 'commerçant' || data.user.role === 'admin')) {
+          router.push(redirect || '/merchant');
+        }
+      }
     } catch (err) {
       setError(err.toString());
     } finally {

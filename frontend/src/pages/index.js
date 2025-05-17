@@ -1,13 +1,9 @@
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
-import AuthModal from '../components/AuthModal';
 import IndexLayout from '../components/layout/IndexLayout';
 
 export default function Home() {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [requiredRole, setRequiredRole] = useState(null);
   const { user } = useAuth();
   const router = useRouter();
   
@@ -26,9 +22,8 @@ export default function Home() {
         alert("Vous n'avez pas les droits nécessaires pour accéder à cet espace.");
       }
     } else {
-      // L'utilisateur n'est pas connecté, afficher le modal d'authentification
-      setRequiredRole(role);
-      setIsAuthModalOpen(true);
+      // L'utilisateur n'est pas connecté, rediriger vers la page de login avec le rôle requis
+      router.push(`/login?role=${role}&redirect=${encodeURIComponent(linkUrl)}`);
     }
   };
   
@@ -189,13 +184,6 @@ export default function Home() {
           </div>
         </footer>
       </div>
-      
-      {/* Modal d'authentification */}
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-        requiredRole={requiredRole}
-      />
     </IndexLayout>
   );
 }

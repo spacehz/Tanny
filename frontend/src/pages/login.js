@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
@@ -11,8 +11,24 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [requiredRole, setRequiredRole] = useState(null);
+  const [redirectUrl, setRedirectUrl] = useState('/');
   const { login } = useAuth();
   const router = useRouter();
+  
+  // Récupérer les paramètres de l'URL au chargement de la page
+  useEffect(() => {
+    if (router.isReady) {
+      const { role, redirect } = router.query;
+      if (role) {
+        setRequiredRole(role);
+        // Ne pas ouvrir le modal automatiquement
+      }
+      if (redirect) {
+        setRedirectUrl(redirect);
+      }
+    }
+  }, [router.isReady, router.query]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,10 +44,32 @@ const Login = () => {
       const data = await login(email, password);
       
       // Redirection explicite après connexion réussie
-      if (data && data.user && data.user.role === 'admin') {
-        router.push('/admin');
-      } else {
-        router.push('/');
+      if (data && data.user) {
+        // Si un rôle spécifique était requis, vérifier les droits d'accès
+        if (requiredRole) {
+          if (requiredRole === 'admin' && data.user.role === 'admin') {
+            router.push(redirectUrl || '/admin');
+          } else if (requiredRole === 'volunteer' && 
+                    (data.user.role === 'volunteer' || data.user.role === 'bénévole' || data.user.role === 'admin')) {
+            router.push(redirectUrl || '/volunteer');
+          } else if (requiredRole === 'merchant' && 
+                    (data.user.role === 'merchant' || data.user.role === 'commerçant' || data.user.role === 'admin')) {
+            router.push(redirectUrl || '/merchant');
+          } else {
+            // L'utilisateur est connecté mais n'a pas le bon rôle
+            alert("Vous n'avez pas les droits nécessaires pour accéder à cet espace.");
+            router.push('/');
+          }
+        } else {
+          // Pas de rôle spécifique requis, redirection standard
+          if (data.user.role === 'admin') {
+            router.push('/admin');
+          } else if (redirectUrl && redirectUrl !== '/') {
+            router.push(redirectUrl);
+          } else {
+            router.push('/');
+          }
+        }
       }
     } catch (error) {
       setError(error.toString());
@@ -43,7 +81,7 @@ const Login = () => {
   return (
     <>
       <Head>
-        <title>Connexion | TANY</title>
+        <title>{requiredRole ? `Connexion ${requiredRole === 'volunteer' ? 'Bénévole' : requiredRole === 'merchant' ? 'Commerçant' : requiredRole === 'admin' ? 'Administrateur' : ''}` : 'Connexion'} | TANY</title>
         <meta name="description" content="Connectez-vous à votre compte TANY pour accéder à votre espace personnel" />
       </Head>
       
@@ -63,7 +101,14 @@ const Login = () => {
             <div className="bg-primary-600 px-6 py-8 text-white text-center">
               <h1 className="text-2xl font-bold">Bienvenue</h1>
               <p className="mt-2 text-primary-100">
-                Connectez-vous pour accéder à votre espace personnel
+                {requiredRole ? 
+                  `Connectez-vous pour accéder à votre espace ${
+                    requiredRole === 'volunteer' ? 'bénévole' : 
+                    requiredRole === 'merchant' ? 'commerçant' : 
+                    requiredRole === 'admin' ? 'administrateur' : 'personnel'
+                  }` : 
+                  'Connectez-vous pour accéder à votre espace personnel'
+                }
               </p>
             </div>
             
