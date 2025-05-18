@@ -10,6 +10,7 @@ import { useEvents } from '../services/swrHooks';
 import { mutate } from 'swr';
 import CollectionModal from '../components/CollectionModal';
 import EventsTable from '../components/EventsTable';
+import EventVolunteerAssignmentModal from '../components/EventVolunteerAssignmentModal';
 
 import { createEvent, updateEvent, deleteEvent } from '../services/eventService';
 
@@ -17,7 +18,9 @@ const AdminCollections = () => {
   const router = useRouter();
   const calendarRef = useRef(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEventForAssignment, setSelectedEventForAssignment] = useState(null);
   // Suppression du mode 'detailedTable' car nous avons maintenant un tableau sous le calendrier
   const [formData, setFormData] = useState({
     title: '',
@@ -120,6 +123,19 @@ const AdminCollections = () => {
         alert('Une erreur est survenue lors de la suppression de l\'événement.');
       }
     }
+  };
+
+  // Fonction pour ouvrir le modal d'affectation des bénévoles
+  const handleShowEventDetails = (event) => {
+    console.log('Ouverture du modal d\'affectation pour l\'événement:', event);
+    setSelectedEventForAssignment(event);
+    setIsAssignmentModalOpen(true);
+  };
+
+  // Fonction pour gérer l'enregistrement des affectations
+  const handleAssignmentSave = (assignments) => {
+    // Rafraîchir les données après l'enregistrement des affectations
+    mutate('/api/events');
   };
 
   // Fonction pour formater les dates
@@ -257,6 +273,7 @@ const AdminCollections = () => {
                 handleEditEvent(eventData);
               }}
               onDelete={handleDeleteEvent}
+              onShowDetails={handleShowEventDetails}
               itemsPerPage={5}
             />
           </div>
@@ -269,6 +286,14 @@ const AdminCollections = () => {
           onSubmit={handleSubmit}
           initialData={formData}
           isEditing={!!selectedEvent}
+        />
+        
+        {/* Modal pour afficher les détails et affecter les bénévoles */}
+        <EventVolunteerAssignmentModal
+          isOpen={isAssignmentModalOpen}
+          onClose={() => setIsAssignmentModalOpen(false)}
+          event={selectedEventForAssignment}
+          onAssignmentSave={handleAssignmentSave}
         />
       </div>
     </AdminLayout>

@@ -45,9 +45,9 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
       case 'sm':
         return 'max-w-md';
       case 'lg':
-        return 'max-w-3xl';
+        return 'max-w-4xl';
       case 'xl':
-        return 'max-w-5xl';
+        return 'max-w-6xl';
       case 'full':
         return 'max-w-full mx-4';
       default:

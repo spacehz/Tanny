@@ -8,6 +8,13 @@ const {
   registerForEvent,
   unregisterFromEvent,
 } = require('../controllers/eventController');
+const {
+  getEventAssignments,
+  saveEventAssignments,
+  getEventVolunteers,
+  getEventMerchants,
+  getEventDonations
+} = require('../controllers/assignmentController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -24,5 +31,12 @@ router.delete('/:id', protect, admin, deleteEvent);
 // Routes pour l'inscription/désinscription des bénévoles
 router.post('/:id/register', protect, registerForEvent);
 router.post('/:id/unregister', protect, unregisterFromEvent);
+
+// Routes pour les affectations des bénévoles
+router.get('/:id/assignments', protect, admin, getEventAssignments);
+router.post('/:id/assignments', protect, admin, saveEventAssignments);
+router.get('/:id/volunteers', protect, admin, getEventVolunteers);
+router.get('/:id/merchants', protect, admin, getEventMerchants);
+router.get('/:id/donations', protect, admin, getEventDonations);
 
 module.exports = router;

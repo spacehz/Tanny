@@ -28,11 +28,11 @@ const eventSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    // Champ pour les collectes
-    merchantId: {
+    // Champ pour les collectes - liste des commerçants participants
+    merchants: [{
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
+      ref: 'Merchant',
+    }],
     // Champ commun pour tous les types d'événements
     expectedVolunteers: {
       type: Number,

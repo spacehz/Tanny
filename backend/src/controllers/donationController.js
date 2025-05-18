@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 const Donation = require('../models/Donation');
 const Merchant = require('../models/Merchant');
 const Event = require('../models/Event');
+const { addMerchantToEvent } = require('../utils/eventHelpers');
 
 /**
  * @desc    Créer un nouveau don
@@ -89,6 +90,10 @@ const createDonation = asyncHandler(async (req, res) => {
 
     if (donation) {
       console.log('Don créé avec succès:', donation);
+      
+      // Ajouter le commerçant à l'événement s'il n'y est pas déjà
+      await addMerchantToEvent(eventId, req.user._id);
+      
       res.status(201).json(donation);
     } else {
       res.status(400);

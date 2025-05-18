@@ -79,10 +79,8 @@ app.use((req, res) => {
 });
 
 // Gestion des erreurs
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Erreur serveur' });
-});
+const errorHandler = require('./middleware/errorMiddleware');
+app.use(errorHandler);
 
 // Port et démarrage du serveur
 const PORT = process.env.PORT || 5000;

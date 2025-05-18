@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const EventsTable = ({ events, onEdit, onDelete, itemsPerPage = 5 }) => {
+const EventsTable = ({ events, onEdit, onDelete, onShowDetails, itemsPerPage = 5 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [filters, setFilters] = useState({
@@ -219,7 +219,14 @@ const EventsTable = ({ events, onEdit, onDelete, itemsPerPage = 5 }) => {
                 return (
                   <tr key={event._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{event.title}</div>
+                      <div className="text-sm font-medium text-gray-900">
+                        <button 
+                          className="text-blue-600 hover:text-blue-800 hover:underline focus:outline-none"
+                          onClick={() => onShowDetails(event)}
+                        >
+                          {event.title}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">{formatDate(event.start)}</div>

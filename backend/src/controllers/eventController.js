@@ -41,9 +41,10 @@ const createEvent = async (req, res) => {
       volunteers,
     };
     
-    // Ajouter merchantId seulement s'il est défini et non vide (uniquement pour les collectes)
+    // Ajouter merchantId au tableau merchants seulement s'il est défini et non vide (uniquement pour les collectes)
     if (type === 'collecte' && merchantId && merchantId.trim() !== '') {
-      eventData.merchantId = merchantId;
+      // Initialiser le tableau merchants s'il n'existe pas
+      eventData.merchants = [merchantId];
     }
     
     const event = await Event.create(eventData);
@@ -69,7 +70,7 @@ const createEvent = async (req, res) => {
 const getEvents = async (req, res) => {
   try {
     const events = await Event.find()
-      .populate('merchantId', 'name businessName')
+      .populate('merchants', 'businessName email')
       .populate('volunteers', 'name email');
 
     res.status(200).json({
@@ -94,7 +95,7 @@ const getEvents = async (req, res) => {
 const getEventById = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
-      .populate('merchantId', 'name businessName')
+      .populate('merchants', 'businessName email')
       .populate('volunteers', 'name email');
 
     if (!event) {
@@ -166,15 +167,18 @@ const updateEvent = async (req, res) => {
       volunteers,
     };
     
-    // Ajouter merchantId seulement s'il est défini et non vide (uniquement pour les collectes)
-    if (type === 'collecte' && merchantId && merchantId.trim() !== '') {
-      updateData.merchantId = merchantId;
-    } else if (type === 'collecte') {
-      // Si le type est collecte mais merchantId est vide, définir à null explicitement
-      updateData.merchantId = null;
+    // Gérer le tableau merchants pour les collectes
+    if (type === 'collecte') {
+      if (merchantId && merchantId.trim() !== '') {
+        // Ajouter le merchantId au tableau merchants s'il n'y est pas déjà
+        updateData.merchants = [merchantId];
+      } else {
+        // Si le type est collecte mais merchantId est vide, définir à un tableau vide
+        updateData.merchants = [];
+      }
     } else {
       // Si le type est marché, définir à undefined pour le supprimer
-      updateData.merchantId = undefined;
+      updateData.merchants = undefined;
     }
     
     // Mettre à jour l'événement
@@ -284,7 +288,7 @@ const registerForEvent = async (req, res) => {
 
     // Récupérer l'événement mis à jour avec les informations des bénévoles
     const updatedEvent = await Event.findById(req.params.id)
-      .populate('merchantId', 'name businessName')
+      .populate('merchants', 'businessName email')
       .populate('volunteers', 'name email');
 
     console.log(`[DEBUG] Événement récupéré après sauvegarde`);
@@ -333,7 +337,7 @@ const unregisterFromEvent = async (req, res) => {
 
     // Récupérer l'événement mis à jour avec les informations des bénévoles
     const updatedEvent = await Event.findById(req.params.id)
-      .populate('merchantId', 'name businessName')
+      .populate('merchants', 'businessName email')
       .populate('volunteers', 'name email');
 
     res.status(200).json({
