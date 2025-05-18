@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import { getEvents } from '../services/eventService';
 import { createDonation } from '../services/donationService';
 import DonationModal from '../components/DonationModal';
 import { toast } from 'react-toastify';
+import { checkBackendAvailability } from '../services/api';
 
 const MerchantDashboard = () => {
   const { user, isAuthenticated, isMerchant } = useAuth();
@@ -17,6 +18,8 @@ const MerchantDashboard = () => {
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
   const [filters, setFilters] = useState({
     title: '',
     location: '',
@@ -70,64 +73,55 @@ const MerchantDashboard = () => {
     return () => clearTimeout(timer);
   }, [isAuthenticated, isMerchant, loading, router, user]);
   
-  // Rafraîchir les événements périodiquement pour assurer la synchronisation
-  useEffect(() => {
-    // Ne configurer l'intervalle que si l'utilisateur est authentifié et est un commerçant
-    if (isAuthenticated && checkIsMerchant() && !loading) {
-      console.log('Configuration du rafraîchissement périodique des événements');
-      
-      // Rafraîchir immédiatement
-      fetchEvents();
-      
-      // Puis configurer un intervalle pour rafraîchir périodiquement
-      const refreshInterval = setInterval(() => {
-        console.log('Rafraîchissement périodique des événements...');
-        fetchEvents();
-      }, 60000); // Rafraîchir toutes les 60 secondes
-      
-      // Nettoyer l'intervalle lors du démontage du composant
-      return () => clearInterval(refreshInterval);
+  // Vérifier la disponibilité du backend
+  const checkBackend = useCallback(async () => {
+    try {
+      const isAvailable = await checkBackendAvailability();
+      setBackendAvailable(isAvailable);
+      return isAvailable;
+    } catch (error) {
+      console.error('Erreur lors de la vérification du backend:', error);
+      setBackendAvailable(false);
+      return false;
     }
-  }, [isAuthenticated, loading]);
+  }, []);
 
   // Récupérer les événements de collecte
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       setEventsLoading(true);
       
-      // Récupérer tous les événements
-      const allEvents = await getEvents();
-      console.log('Tous les événements récupérés:', allEvents);
-      
-      // Afficher la structure détaillée pour le débogage
-      console.log('Structure de la réponse:', {
-        type: typeof allEvents,
-        isArray: Array.isArray(allEvents),
-        length: allEvents ? (Array.isArray(allEvents) ? allEvents.length : 'non-array') : 'null',
-        sample: allEvents && Array.isArray(allEvents) && allEvents.length > 0 ? allEvents[0] : 'no sample'
-      });
-      
-      if (!allEvents || !Array.isArray(allEvents)) {
-        console.error('Format de données invalide:', allEvents);
-        toast.error('Format de données invalide');
+      // Vérifier si le backend est disponible
+      const isAvailable = await checkBackend();
+      if (!isAvailable) {
+        toast.error('Le serveur n\'est pas disponible. Veuillez réessayer plus tard.');
+        setEvents([]);
+        setFilteredEvents([]);
         return;
       }
       
-      // Filtrer pour ne garder que les événements de type "collecte"
-      const collecteEvents = allEvents.filter(event => {
-        // S'assurer que l'événement est un objet valide
-        if (!event || typeof event !== 'object') return false;
-        
-        // Vérifier strictement le type "collecte"
-        const eventType = event.type ? event.type.toLowerCase() : '';
-        const isCollecte = eventType === 'collecte';
-        
-        console.log(`Événement "${event.title || 'Sans titre'}" - Type: "${event.type || 'Non défini'}" - Est collecte: ${isCollecte}`);
-        
-        return isCollecte;
-      });
+      // Préparer les options de filtrage
+      const options = {
+        type: 'collecte', // Filtrer directement par type "collecte"
+        startDate: filters.startDate || undefined,
+        endDate: filters.endDate || undefined,
+        location: filters.location || undefined
+      };
       
-      console.log('Événements de collecte filtrés:', collecteEvents);
+      // Récupérer les événements de collecte depuis l'API
+      const collecteEvents = await getEvents(options);
+      console.log('Événements de collecte récupérés:', collecteEvents);
+      
+      // Réinitialiser le compteur de tentatives car la requête a réussi
+      setRetryCount(0);
+      
+      if (!collecteEvents || !Array.isArray(collecteEvents)) {
+        console.error('Format de données invalide:', collecteEvents);
+        toast.error('Format de données invalide');
+        setEvents([]);
+        setFilteredEvents([]);
+        return;
+      }
       
       // Ajouter un ID temporaire si nécessaire pour éviter les erreurs de clé React
       const eventsWithIds = collecteEvents.map(event => ({
@@ -136,7 +130,16 @@ const MerchantDashboard = () => {
       }));
       
       setEvents(eventsWithIds);
-      setFilteredEvents(eventsWithIds);
+      
+      // Appliquer le filtre de titre localement (car l'API ne le gère peut-être pas)
+      let filtered = [...eventsWithIds];
+      if (filters.title) {
+        filtered = filtered.filter(event => 
+          event.title.toLowerCase().includes(filters.title.toLowerCase())
+        );
+      }
+      
+      setFilteredEvents(filtered);
       
       // Si aucun événement n'est trouvé, afficher un message
       if (eventsWithIds.length === 0) {
@@ -146,60 +149,141 @@ const MerchantDashboard = () => {
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des événements:', error);
-      toast.error('Impossible de charger les événements de collecte');
+      
+      // Incrémenter le compteur de tentatives
+      setRetryCount(prev => prev + 1);
+      
+      // Vérifier si l'erreur est due à un problème de connexion au serveur
+      if (error.message === 'Backend unavailable' || 
+          error.message.includes('Network Error') || 
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('ECONNREFUSED')) {
+        setBackendAvailable(false);
+        toast.error('Impossible de se connecter au serveur. Veuillez vérifier votre connexion internet ou réessayer plus tard.');
+      } else if (error.response && error.response.status === 401) {
+        toast.error('Session expirée. Veuillez vous reconnecter.');
+        // Rediriger vers la page de connexion après un court délai
+        setTimeout(() => {
+          router.push('/login?session=expired');
+        }, 2000);
+      } else {
+        toast.error('Impossible de charger les événements de collecte');
+      }
+      
+      setEvents([]);
+      setFilteredEvents([]);
     } finally {
       setEventsLoading(false);
     }
-  };
-
-  // Appliquer les filtres aux événements
+  }, [checkBackend, filters, router]);
+  
+  // Effet pour réessayer automatiquement si le backend n'est pas disponible
   useEffect(() => {
-    let result = [...events];
-    
-    // Filtre par titre
-    if (filters.title) {
-      result = result.filter(event => 
-        event.title.toLowerCase().includes(filters.title.toLowerCase())
-      );
+    if (!backendAvailable && retryCount < 3) {
+      const retryTimer = setTimeout(() => {
+        console.log(`Tentative de reconnexion au backend (${retryCount + 1}/3)...`);
+        fetchEvents();
+      }, 5000 * (retryCount + 1)); // Augmenter le délai à chaque tentative
+      
+      return () => clearTimeout(retryTimer);
     }
-    
-    // Filtre par lieu
-    if (filters.location) {
-      result = result.filter(event => 
-        event.location && event.location.toLowerCase().includes(filters.location.toLowerCase())
-      );
+  }, [backendAvailable, retryCount, fetchEvents]);
+  
+  // Rafraîchir les événements périodiquement pour assurer la synchronisation
+  useEffect(() => {
+    // Ne configurer l'intervalle que si l'utilisateur est authentifié et est un commerçant
+    if (isAuthenticated && checkIsMerchant() && !loading) {
+      console.log('Configuration du rafraîchissement périodique des événements');
+      
+      let refreshInterval;
+      
+      // Vérifier d'abord si le backend est disponible
+      checkBackend().then(isAvailable => {
+        if (isAvailable) {
+          // Rafraîchir immédiatement
+          fetchEvents();
+          
+          // Puis configurer un intervalle pour rafraîchir périodiquement
+          refreshInterval = setInterval(() => {
+            console.log('Rafraîchissement périodique des événements...');
+            // Vérifier si aucun filtre n'est actif avant de rafraîchir automatiquement
+            const hasActiveFilters = filters.title || filters.location || filters.startDate || filters.endDate;
+            if (!hasActiveFilters && backendAvailable) {
+              fetchEvents();
+            }
+          }, 300000); // Rafraîchir toutes les 5 minutes (300000ms) pour réduire la charge serveur
+        } else {
+          console.log('Backend non disponible, pas de rafraîchissement périodique');
+        }
+      });
+      
+      // Nettoyer l'intervalle lors du démontage du composant
+      return () => {
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+        }
+      };
     }
-    
-    // Filtre par date de début
-    if (filters.startDate) {
-      const startDate = new Date(filters.startDate);
-      result = result.filter(event => 
-        new Date(event.start) >= startDate
-      );
-    }
-    
-    // Filtre par date de fin
-    if (filters.endDate) {
-      const endDate = new Date(filters.endDate);
-      endDate.setHours(23, 59, 59, 999); // Fin de la journée
-      result = result.filter(event => 
-        new Date(event.end) <= endDate
-      );
-    }
-    
-    setFilteredEvents(result);
-  }, [events, filters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, loading, backendAvailable, filters.title, filters.location, filters.startDate, filters.endDate]);
 
-  // Gérer le changement de filtre
+  // Appliquer les filtres aux événements ou déclencher une nouvelle requête
+  useEffect(() => {
+    // Si les filtres de date ou de lieu changent, on refait une requête au backend
+    if (filters.startDate || filters.endDate || filters.location) {
+      fetchEvents();
+    } else {
+      // Pour le filtre de titre, on l'applique localement
+      let result = [...events];
+      
+      // Filtre par titre
+      if (filters.title) {
+        result = result.filter(event => 
+          event.title.toLowerCase().includes(filters.title.toLowerCase())
+        );
+      }
+      
+      setFilteredEvents(result);
+    }
+  }, [filters.title]); // Ne réagir qu'aux changements du filtre de titre
+  
+  // Effet séparé pour refaire une requête quand les filtres de date ou de lieu changent
+  useEffect(() => {
+    // Éviter de déclencher au premier rendu
+    if (events.length > 0 && (filters.startDate || filters.endDate || filters.location)) {
+      fetchEvents();
+    }
+  }, [filters.startDate, filters.endDate, filters.location]);
+
+  // Gérer le changement de filtre avec debounce pour éviter trop de requêtes
+  const [filterTimeout, setFilterTimeout] = useState(null);
+  
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
+    
+    // Mettre à jour l'état des filtres immédiatement pour l'UI
     setFilters(prev => ({
       ...prev,
       [name]: value
     }));
+    
+    // Pour le filtre de titre, ajouter un délai avant d'appliquer
+    if (name === 'title') {
+      // Annuler le timeout précédent s'il existe
+      if (filterTimeout) {
+        clearTimeout(filterTimeout);
+      }
+      
+      // Créer un nouveau timeout
+      const newTimeout = setTimeout(() => {
+        // Le filtre de titre est appliqué via l'useEffect qui surveille filters.title
+      }, 300); // 300ms de délai
+      
+      setFilterTimeout(newTimeout);
+    }
   };
 
-  // Réinitialiser tous les filtres
+  // Réinitialiser tous les filtres et recharger les données
   const resetFilters = () => {
     setFilters({
       title: '',
@@ -207,6 +291,11 @@ const MerchantDashboard = () => {
       startDate: '',
       endDate: ''
     });
+    
+    // Recharger les événements sans filtres
+    setTimeout(() => {
+      fetchEvents();
+    }, 100);
   };
 
   // Ouvrir le modal de donation pour un événement
@@ -469,6 +558,33 @@ const MerchantDashboard = () => {
                       <div className="flex justify-center items-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600 mr-3"></div>
                         <span className="text-gray-600 text-base">Chargement des événements...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : !backendAvailable ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-red-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p className="text-lg font-medium text-gray-800 mb-2">Connexion au serveur impossible</p>
+                        <p className="text-gray-600 mb-4">Nous ne pouvons pas récupérer les données depuis le serveur.</p>
+                        <button 
+                          onClick={() => {
+                            setEventsLoading(true);
+                            checkBackend().then(isAvailable => {
+                              if (isAvailable) {
+                                fetchEvents();
+                              } else {
+                                setEventsLoading(false);
+                              }
+                            });
+                          }}
+                          className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                        >
+                          Réessayer
+                        </button>
                       </div>
                     </td>
                   </tr>

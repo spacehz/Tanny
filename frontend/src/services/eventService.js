@@ -1,112 +1,80 @@
-import api from './api';
+import api, { checkBackendAvailability } from './api';
 
 /**
  * Récupère tous les événements
+ * @param {Object} options - Options de filtrage et pagination
+ * @param {string} options.type - Type d'événement à filtrer (optionnel)
+ * @param {number} options.page - Numéro de page (optionnel)
+ * @param {number} options.limit - Nombre d'éléments par page (optionnel)
  * @returns {Promise} Promesse contenant les données des événements
  */
-export const getEvents = async () => {
+export const getEvents = async (options = {}) => {
   try {
     console.log('Appel API pour récupérer les événements...');
     
-    // Données de test pour garantir l'affichage (à supprimer en production)
-    const testEvents = [
-      {
-        _id: 'test-event-1',
-        title: 'Collecte Boulangerie du Centre',
-        type: 'collecte',
-        start: new Date().toISOString(),
-        end: new Date(Date.now() + 3600000).toISOString(),
-        location: 'Boulangerie du Centre, 15 rue de Paris',
-        description: 'Collecte de pains et viennoiseries invendus',
-        expectedVolunteers: 2,
-        volunteers: []
-      },
-      {
-        _id: 'test-event-2',
-        title: 'Collecte Supermarché Bio',
-        type: 'collecte',
-        start: new Date(Date.now() + 86400000).toISOString(), // demain
-        end: new Date(Date.now() + 90000000).toISOString(),
-        location: 'Supermarché Bio, 42 avenue des Fleurs',
-        description: 'Collecte de fruits et légumes',
-        expectedVolunteers: 3,
-        volunteers: [{id: 'vol1', name: 'Jean Dupont'}]
-      },
-      {
-        _id: 'test-event-3',
-        title: 'Marché solidaire',
-        type: 'marché',
-        start: new Date(Date.now() + 172800000).toISOString(), // dans 2 jours
-        end: new Date(Date.now() + 180000000).toISOString(),
-        location: 'Place de la République',
-        description: 'Distribution de produits aux bénéficiaires',
-        expectedVolunteers: 5,
-        volunteers: []
-      }
-    ];
-    
-    try {
-      // Essayer de récupérer les données depuis l'API
-      const response = await api.get('/api/events');
-      console.log('Réponse API événements:', response);
-      
-      // Vérifier si la réponse contient des données dans le format attendu
-      if (response.data) {
-        // Vérifier si les données sont directement dans response.data ou dans response.data.data
-        let eventsData = [];
-        
-        if (Array.isArray(response.data)) {
-          // Format: response.data est directement le tableau d'événements
-          eventsData = response.data;
-          console.log(`${eventsData.length} événements récupérés directement depuis response.data`);
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          // Format: response.data.data est le tableau d'événements (format standard API)
-          eventsData = response.data.data;
-          console.log(`${eventsData.length} événements récupérés depuis response.data.data`);
-        }
-        
-        if (eventsData.length > 0) {
-          // Si nous avons des données valides, les utiliser
-          return eventsData;
-        }
-      }
-      
-      // Si aucune donnée valide n'a été trouvée, utiliser les données de test
-      console.warn('Aucune donnée valide reçue de l\'API, utilisation des données de test');
-      return testEvents;
-    } catch (apiError) {
-      // En cas d'erreur API, utiliser les données de test
-      console.error('Erreur lors de l\'appel API:', apiError);
-      console.warn('Utilisation des données de test suite à l\'erreur API');
-      return testEvents;
+    // Vérifier si le backend est disponible
+    const isBackendAvailable = await checkBackendAvailability();
+    if (!isBackendAvailable) {
+      console.error('Le backend n\'est pas disponible');
+      throw new Error('Backend unavailable');
     }
-  } catch (error) {
-    console.error('Erreur générale dans getEvents:', error);
-    // En cas d'erreur générale, retourner au moins les données de test
-    return [
-      {
-        _id: 'fallback-event',
-        title: 'Collecte d\'urgence',
-        type: 'collecte',
-        start: new Date().toISOString(),
-        end: new Date(Date.now() + 3600000).toISOString(),
-        location: 'Centre-ville',
-        description: 'Collecte de secours',
-        expectedVolunteers: 1,
-        volunteers: []
-      },
-      {
-        _id: 'fallback-event-2',
-        title: 'Réunion d\'équipe',
-        type: 'réunion',
-        start: new Date(Date.now() + 86400000).toISOString(),
-        end: new Date(Date.now() + 90000000).toISOString(),
-        location: 'Siège de l\'association',
-        description: 'Réunion mensuelle',
-        expectedVolunteers: 0,
-        volunteers: []
+    
+    // Construire les paramètres de requête
+    const { type, page, limit, startDate, endDate, location } = options;
+    let queryParams = [];
+    
+    if (type) queryParams.push(`type=${encodeURIComponent(type)}`);
+    if (page) queryParams.push(`page=${page}`);
+    if (limit) queryParams.push(`limit=${limit}`);
+    if (startDate) queryParams.push(`startDate=${encodeURIComponent(startDate)}`);
+    if (endDate) queryParams.push(`endDate=${encodeURIComponent(endDate)}`);
+    if (location) queryParams.push(`location=${encodeURIComponent(location)}`);
+    
+    const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+    
+    // Appel à l'API avec un timeout pour éviter les requêtes qui restent en attente
+    const response = await api.get(`/api/events${queryString}`);
+    console.log('Réponse API événements:', response);
+    
+    // Traiter la réponse
+    if (response.data) {
+      // Vérifier si les données sont directement dans response.data ou dans response.data.data
+      let eventsData = [];
+      
+      if (Array.isArray(response.data)) {
+        // Format: response.data est directement le tableau d'événements
+        eventsData = response.data;
+        console.log(`${eventsData.length} événements récupérés directement depuis response.data`);
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        // Format: response.data.data est le tableau d'événements (format standard API)
+        eventsData = response.data.data;
+        console.log(`${eventsData.length} événements récupérés depuis response.data.data`);
+      } else if (response.data.events && Array.isArray(response.data.events)) {
+        // Format alternatif: response.data.events est le tableau d'événements
+        eventsData = response.data.events;
+        console.log(`${eventsData.length} événements récupérés depuis response.data.events`);
       }
-    ];
+      
+      // Vérifier que chaque événement a un ID
+      const validatedEvents = eventsData.map(event => {
+        if (!event._id) {
+          return {
+            ...event,
+            _id: `generated-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+          };
+        }
+        return event;
+      });
+      
+      return validatedEvents;
+    }
+    
+    // Si aucune donnée valide n'a été trouvée, retourner un tableau vide
+    console.warn('Aucune donnée valide reçue de l\'API');
+    return [];
+  } catch (error) {
+    console.error('Erreur lors de la récupération des événements:', error);
+    throw error;
   }
 };
 

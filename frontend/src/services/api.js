@@ -6,6 +6,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 seconds timeout to prevent hanging requests
 });
 
 // Add a request interceptor to include CSRF token
@@ -150,5 +151,25 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * Vérifie si le backend est disponible
+ * @returns {Promise<boolean>} true si le backend est disponible, false sinon
+ */
+export const checkBackendAvailability = async () => {
+  try {
+    // Essayer de faire une requête simple au backend
+    const response = await axios.get(`${api.defaults.baseURL}/api/health`, { 
+      timeout: 5000,
+      validateStatus: status => status < 500 // Accepter tous les codes de statut sauf les 5xx
+    });
+    
+    // Si on obtient une réponse, le backend est disponible
+    return response.status < 500;
+  } catch (error) {
+    console.error('Erreur lors de la vérification de disponibilité du backend:', error);
+    return false;
+  }
+};
 
 export default api;
