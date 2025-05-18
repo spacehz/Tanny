@@ -3,7 +3,9 @@ import api from './api';
 
 // Fetcher function for SWR
 const fetcher = async (url) => {
+  console.log('Fetching data from:', url);
   const response = await api.get(url);
+  console.log('Response received:', response.data);
   return response.data;
 };
 
@@ -192,19 +194,14 @@ export const useVolunteerAssignments = (volunteerId) => {
   const { data, error, isLoading, mutate } = useSWR(
     volunteerId ? `/api/users/volunteers/${volunteerId}/assignments` : null,
     async (url) => {
-      // Utiliser un fetcher personnalisé pour mieux gérer les erreurs
+      // Utiliser l'instance API avec la bonne URL de base
       try {
         console.log('Fetching assignments from URL:', url);
-        const response = await fetch(url);
+        const response = await api.get(url);
         
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP: ${response.status}`);
-        }
+        console.log('Données brutes reçues:', response.data);
         
-        const jsonData = await response.json();
-        console.log('Données brutes reçues:', jsonData);
-        
-        return jsonData;
+        return response.data;
       } catch (err) {
         console.error('Erreur dans le fetcher personnalisé:', err);
         throw err;

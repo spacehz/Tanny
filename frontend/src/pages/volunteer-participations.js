@@ -4,6 +4,7 @@ import Head from 'next/head';
 import VolunteerLayout from '../components/layout/VolunteerLayout';
 import { useVolunteerAssignments } from '../services/swrHooks';
 import { updateAssignmentStatus } from '../services/assignmentService';
+import api from '../services/api';
 
 export default function VolunteerParticipationsPage() {
   const { user } = useAuth();
@@ -19,110 +20,9 @@ export default function VolunteerParticipationsPage() {
   
   // Logs détaillés pour déboguer
   console.log('User ID:', user?._id);
-  console.log('User details:', user);
   console.log('Assignments from hook:', assignments);
   console.log('Assignments loading:', assignmentsLoading);
   console.log('Assignments error:', assignmentsError);
-  
-  // Afficher la structure exacte des données pour le débogage
-  useEffect(() => {
-    // Récupérer directement les données de l'API pour vérifier leur structure
-    if (user?._id) {
-      fetch(`/api/users/volunteers/${user._id}/assignments`)
-        .then(response => response.json())
-        .then(data => {
-          console.log('Données brutes de l\'API:', data);
-          console.log('Structure des données:', JSON.stringify(data, null, 2));
-          
-          // Vérifier si les données ont la structure attendue
-          if (data && data.success && Array.isArray(data.data)) {
-            console.log('Nombre d\'affectations dans la réponse API:', data.data.length);
-            
-            // Essayer de traiter les données manuellement
-            const now = new Date();
-            const upcoming = data.data.filter(assignment => 
-              assignment.event && new Date(assignment.event.date) > now
-            );
-            const past = data.data.filter(assignment => 
-              assignment.event && new Date(assignment.event.date) <= now
-            );
-            
-            console.log('Affectations à venir (traitement manuel):', upcoming);
-            console.log('Affectations passées (traitement manuel):', past);
-            
-            // Mettre à jour l'état avec ces données
-            setUpcomingAssignments(prev => [...prev, ...upcoming]);
-            setPastAssignments(prev => [...prev, ...past]);
-          }
-        })
-        .catch(error => {
-          console.error('Erreur lors de la récupération directe des données:', error);
-        });
-    }
-  }, [user?._id]);
-  
-  // Ajout de données de test temporaires pour vérifier l'affichage
-  useEffect(() => {
-    // Toujours ajouter des données de test pour vérifier l'affichage
-    console.log('Ajout de données de test pour vérification');
-    
-    // Créer des données de test
-    const testData = [
-      {
-        _id: 'test-assignment-1',
-        event: {
-          _id: 'event-1',
-          name: 'Collecte Test',
-          date: new Date(Date.now() + 86400000).toISOString(), // Demain
-          location: 'Paris',
-          type: 'collecte'
-        },
-        merchant: {
-          _id: 'merchant-1',
-          businessName: 'Boulangerie Test',
-          address: '123 Rue de Test, Paris'
-        },
-        items: [
-          { name: 'Pain', quantity: 5, unit: 'kg' },
-          { name: 'Viennoiseries', quantity: 10, unit: 'pièce' }
-        ],
-        status: 'pending'
-      },
-      {
-        _id: 'test-assignment-2',
-        event: {
-          _id: 'event-2',
-          name: 'Marché Test',
-          date: new Date(Date.now() - 86400000).toISOString(), // Hier
-          location: 'Lyon',
-          type: 'marché'
-        },
-        merchant: {
-          _id: 'merchant-2',
-          businessName: 'Primeur Test',
-          address: '456 Avenue de Test, Lyon'
-        },
-        items: [
-          { name: 'Pommes', quantity: 3, unit: 'kg' },
-          { name: 'Carottes', quantity: 2, unit: 'kg' }
-        ],
-        status: 'completed'
-      }
-    ];
-    
-    // Séparer les données de test en affectations à venir et passées
-    const now = new Date();
-    const upcoming = testData.filter(a => new Date(a.event.date) > now);
-    const past = testData.filter(a => new Date(a.event.date) <= now);
-    
-    console.log('Données de test à venir:', upcoming);
-    console.log('Données de test passées:', past);
-    
-    setUpcomingAssignments(upcoming);
-    setPastAssignments(past);
-  }, []);
-
-  // Suppression de l'effet pour les participations qui n'est plus nécessaire
   
   // Traiter les assignments du bénévole
   useEffect(() => {
@@ -131,126 +31,98 @@ export default function VolunteerParticipationsPage() {
     
     // Fonction pour traiter les données d'affectation
     const processAssignmentData = () => {
-      // Essayer d'abord avec les données formatées
-      if (assignments && Array.isArray(assignments) && assignments.length > 0) {
-        console.log('Traitement des données formatées:', assignments);
-        
-        const now = new Date();
-        
-        // Séparer les assignments à venir et passés
-        const upcoming = assignments.filter(assignment => 
-          assignment.event && new Date(assignment.event.date) > now
-        );
-        
-        const past = assignments.filter(assignment => 
-          assignment.event && new Date(assignment.event.date) <= now
-        );
-        
-        console.log('Upcoming assignments from API:', upcoming);
-        console.log('Past assignments from API:', past);
-        
-        setUpcomingAssignments(upcoming);
-        setPastAssignments(past);
-        
-        return true; // Données traitées avec succès
-      } 
-      // Essayer avec les données brutes si elles ont un format différent
-      else if (assignmentsRawData && assignmentsRawData.data && Array.isArray(assignmentsRawData.data) && assignmentsRawData.data.length > 0) {
+      // Vérifier si nous avons des données brutes
+      if (assignmentsRawData && assignmentsRawData.data && Array.isArray(assignmentsRawData.data) && assignmentsRawData.data.length > 0) {
         console.log('Traitement des données brutes:', assignmentsRawData.data);
         
-        const now = new Date();
+        // Utiliser toutes les affectations comme "à venir" pour l'instant
+        // puisque nous n'avons pas de date dans la réponse API
         const rawAssignments = assignmentsRawData.data;
         
-        // Séparer les assignments à venir et passés
-        const upcoming = rawAssignments.filter(assignment => 
-          assignment.event && new Date(assignment.event.date) > now
-        );
+        // Traiter chaque affectation pour s'assurer qu'elle a la structure attendue
+        const processedAssignments = rawAssignments.map(assignment => {
+          // Créer une copie pour éviter de modifier l'original
+          const processedAssignment = { ...assignment };
+          
+          // S'assurer que l'événement a un nom
+          if (processedAssignment.event) {
+            processedAssignment.event = {
+              ...processedAssignment.event,
+              name: processedAssignment.event.name || 
+                    `Événement à ${processedAssignment.event.location || 'lieu inconnu'}`
+            };
+          }
+          
+          // Normaliser le statut
+          if (processedAssignment.status === "En cours") {
+            processedAssignment.status = "pending";
+          }
+          
+          return processedAssignment;
+        });
         
-        const past = rawAssignments.filter(assignment => 
-          assignment.event && new Date(assignment.event.date) <= now
-        );
+        console.log('Processed assignments:', processedAssignments);
         
-        console.log('Upcoming assignments from raw data:', upcoming);
-        console.log('Past assignments from raw data:', past);
+        // Comme nous n'avons pas de date, nous allons considérer tous les assignments comme "à venir"
+        setUpcomingAssignments(processedAssignments);
+        setPastAssignments([]);
         
-        setUpcomingAssignments(upcoming);
-        setPastAssignments(past);
+        return true; // Données traitées avec succès
+      }
+      // Essayer avec les données formatées si disponibles
+      else if (assignments && Array.isArray(assignments) && assignments.length > 0) {
+        console.log('Traitement des données formatées:', assignments);
+        
+        // Traiter chaque affectation pour s'assurer qu'elle a la structure attendue
+        const processedAssignments = assignments.map(assignment => {
+          // Créer une copie pour éviter de modifier l'original
+          const processedAssignment = { ...assignment };
+          
+          // S'assurer que l'événement a un nom
+          if (processedAssignment.event) {
+            processedAssignment.event = {
+              ...processedAssignment.event,
+              name: processedAssignment.event.name || 
+                    `Événement à ${processedAssignment.event.location || 'lieu inconnu'}`
+            };
+          }
+          
+          // Normaliser le statut
+          if (processedAssignment.status === "En cours") {
+            processedAssignment.status = "pending";
+          }
+          
+          return processedAssignment;
+        });
+        
+        console.log('Processed assignments:', processedAssignments);
+        
+        // Comme nous n'avons pas de date, nous allons considérer tous les assignments comme "à venir"
+        setUpcomingAssignments(processedAssignments);
+        setPastAssignments([]);
         
         return true; // Données traitées avec succès
       }
       
+      console.log('Aucune donnée d\'affectation trouvée');
       return false; // Aucune donnée réelle traitée
     };
     
     // Essayer de traiter les données réelles
-    const dataProcessed = processAssignmentData();
+    processAssignmentData();
     
-    // Si aucune donnée réelle n'est disponible, utiliser des données de test
-    if (!dataProcessed) {
-      console.log('Aucune donnée d\'affectation réelle disponible, utilisation des données de test');
-      
-      // Créer des données de test
-      const testData = [
-        {
-          _id: 'test-assignment-1',
-          event: {
-            _id: 'event-1',
-            name: 'Collecte Test',
-            date: new Date(Date.now() + 86400000).toISOString(), // Demain
-            location: 'Paris',
-            type: 'collecte'
-          },
-          merchant: {
-            _id: 'merchant-1',
-            businessName: 'Boulangerie Test',
-            address: '123 Rue de Test, Paris'
-          },
-          items: [
-            { name: 'Pain', quantity: 5, unit: 'kg' },
-            { name: 'Viennoiseries', quantity: 10, unit: 'pièce' }
-          ],
-          status: 'pending'
-        },
-        {
-          _id: 'test-assignment-2',
-          event: {
-            _id: 'event-2',
-            name: 'Marché Test',
-            date: new Date(Date.now() - 86400000).toISOString(), // Hier
-            location: 'Lyon',
-            type: 'marché'
-          },
-          merchant: {
-            _id: 'merchant-2',
-            businessName: 'Primeur Test',
-            address: '456 Avenue de Test, Lyon'
-          },
-          items: [
-            { name: 'Pommes', quantity: 3, unit: 'kg' },
-            { name: 'Carottes', quantity: 2, unit: 'kg' }
-          ],
-          status: 'completed'
-        }
-      ];
-      
-      // Séparer les données de test en affectations à venir et passées
-      const now = new Date();
-      const upcoming = testData.filter(a => new Date(a.event.date) > now);
-      const past = testData.filter(a => new Date(a.event.date) <= now);
-      
-      console.log('Upcoming test assignments:', upcoming);
-      console.log('Past test assignments:', past);
-      
-      setUpcomingAssignments(upcoming);
-      setPastAssignments(past);
-    }
   }, [assignments, assignmentsRawData]);
 
   // Fonction pour formater la date en français
   const formatDate = (dateString) => {
     if (!dateString) return 'Date non spécifiée';
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString('fr-FR', options);
+    try {
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return new Date(dateString).toLocaleDateString('fr-FR', options);
+    } catch (error) {
+      console.error('Erreur lors du formatage de la date:', error);
+      return 'Date invalide';
+    }
   };
   
   // Fonction pour formater la liste des produits
@@ -259,8 +131,6 @@ export default function VolunteerParticipationsPage() {
     
     return items.map(item => `${item.name} (${item.quantity} ${item.unit})`).join(', ');
   };
-
-  // Suppression de la fonction markAsCompleted qui n'est plus nécessaire
   
   // Fonction pour marquer une affectation comme terminée
   const markAssignmentAsCompleted = async (id) => {
@@ -346,271 +216,202 @@ export default function VolunteerParticipationsPage() {
             </button>
           </div>
           
-          {/* Forcer l'affichage du tableau avec des données de test */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Événement
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Commerçant
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Produits
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {/* Ligne de test statique */}
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      Collecte Test Statique
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      Boulangerie Test Statique
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      123 Rue de Test, Paris
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500 max-w-xs break-words">
-                      Pain (5 kg), Viennoiseries (10 pièce)
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      {formatDate(new Date(Date.now() + 86400000).toISOString())}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                      En attente
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button className="text-primary-600 hover:text-primary-900 mr-3">
-                      Détails
-                    </button>
-                    <button className="text-green-600 hover:text-green-900">
-                      Confirmer
-                    </button>
-                  </td>
-                </tr>
-                
-                {/* Afficher également les données dynamiques si disponibles */}
-                {upcomingAssignments.map((assignment) => (
-                  <tr key={assignment._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {assignment.event?.name || 'Événement sans nom'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {assignment.merchant?.businessName || 'Commerçant non spécifié'}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {assignment.merchant?.address || ''}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500 max-w-xs break-words">
-                        {formatProductsList(assignment.items)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {formatDate(assignment.event?.date)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        assignment.status === 'completed' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {assignment.status === 'completed' ? 'Terminé' : 'En attente'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-primary-600 hover:text-primary-900 mr-3">
-                        Détails
-                      </button>
-                      <button 
-                        className="text-green-600 hover:text-green-900"
-                        onClick={() => markAssignmentAsCompleted(assignment._id)}
-                      >
-                        Confirmer
-                      </button>
-                    </td>
+          {assignmentsLoading ? (
+            <p className="text-center py-4">Chargement des affectations...</p>
+          ) : assignmentsError ? (
+            <p className="text-center py-4 text-red-500">Erreur lors du chargement des affectations: {assignmentsError.message}</p>
+          ) : upcomingAssignments.length === 0 ? (
+            <p className="text-center py-4">Aucune affectation à venir</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Événement
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Commerçant
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Produits
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Message d'état (caché car nous forçons l'affichage du tableau) */}
-          <div className="hidden">
-            {assignmentsLoading ? (
-              <p>Chargement des affectations...</p>
-            ) : assignmentsError ? (
-              <p className="text-red-500">Erreur lors du chargement des affectations: {assignmentsError.message}</p>
-            ) : !assignments || !Array.isArray(assignments) ? (
-              <p>Aucune donnée d'affectation disponible</p>
-            ) : upcomingAssignments.length === 0 ? (
-              <p>Aucune affectation à venir</p>
-            ) : null}
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {upcomingAssignments.map((assignment) => (
+                    <tr key={assignment._id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {assignment.event?.name || `Événement à ${assignment.event?.location || 'lieu inconnu'}`}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Type: {assignment.event?.type || 'Non spécifié'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Lieu: {assignment.event?.location || 'Non spécifié'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {assignment.merchant?.businessName || 'Commerçant non spécifié'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {assignment.merchant?.address?.street ? 
+                            `${assignment.merchant.address.street}, ${assignment.merchant.address.city || ''} ${assignment.merchant.address.postalCode || ''}` : 
+                            (typeof assignment.merchant?.address === 'string' ? assignment.merchant.address : 'Adresse non spécifiée')}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-500 max-w-xs break-words">
+                          {formatProductsList(assignment.items)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {assignment.event?.date ? formatDate(assignment.event.date) : 'Date non spécifiée'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Créé le: {formatDate(assignment.createdAt)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          assignment.status === 'completed' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {assignment.status === 'completed' ? 'Terminé' : 'En attente'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button className="text-primary-600 hover:text-primary-900 mr-3">
+                          Détails
+                        </button>
+                        <button 
+                          className="text-green-600 hover:text-green-900"
+                          onClick={() => markAssignmentAsCompleted(assignment._id)}
+                        >
+                          Confirmer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         
         {/* Affectations passées */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-4">Affectations passées</h2>
           
-          {/* Forcer l'affichage du tableau avec des données de test */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Événement
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Commerçant
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Produits
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {/* Ligne de test statique */}
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      Marché Test Statique
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      Primeur Test Statique
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      456 Avenue de Test, Lyon
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500 max-w-xs break-words">
-                      Pommes (3 kg), Carottes (2 kg)
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      {formatDate(new Date(Date.now() - 86400000).toISOString())}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Terminé
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button className="text-primary-600 hover:text-primary-900 mr-3">
-                      Détails
-                    </button>
-                  </td>
-                </tr>
-                
-                {/* Afficher également les données dynamiques si disponibles */}
-                {pastAssignments.map((assignment) => (
-                  <tr key={assignment._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {assignment.event?.name || 'Événement sans nom'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {assignment.merchant?.businessName || 'Commerçant non spécifié'}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {assignment.merchant?.address || ''}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500 max-w-xs break-words">
-                        {formatProductsList(assignment.items)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {formatDate(assignment.event?.date)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        assignment.status === 'completed' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {assignment.status === 'completed' ? 'Terminé' : 'En attente'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button className="text-primary-600 hover:text-primary-900 mr-3">
-                        Détails
-                      </button>
-                      {assignment.status !== 'completed' && (
-                        <button 
-                          className="text-green-600 hover:text-green-900"
-                          onClick={() => markAssignmentAsCompleted(assignment._id)}
-                        >
-                          Marquer terminé
-                        </button>
-                      )}
-                    </td>
+          {assignmentsLoading ? (
+            <p className="text-center py-4">Chargement des affectations...</p>
+          ) : assignmentsError ? (
+            <p className="text-center py-4 text-red-500">Erreur lors du chargement des affectations: {assignmentsError.message}</p>
+          ) : pastAssignments.length === 0 ? (
+            <p className="text-center py-4">Aucune affectation passée</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Événement
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Commerçant
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Produits
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Message d'état (caché car nous forçons l'affichage du tableau) */}
-          <div className="hidden">
-            {assignmentsLoading ? (
-              <p>Chargement des affectations...</p>
-            ) : assignmentsError ? (
-              <p className="text-red-500">Erreur lors du chargement des affectations: {assignmentsError.message}</p>
-            ) : !assignments || !Array.isArray(assignments) ? (
-              <p>Aucune donnée d'affectation disponible</p>
-            ) : pastAssignments.length === 0 ? (
-              <p>Aucune affectation passée</p>
-            ) : null}
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {pastAssignments.map((assignment) => (
+                    <tr key={assignment._id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {assignment.event?.name || `Événement à ${assignment.event?.location || 'lieu inconnu'}`}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Type: {assignment.event?.type || 'Non spécifié'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Lieu: {assignment.event?.location || 'Non spécifié'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {assignment.merchant?.businessName || 'Commerçant non spécifié'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {assignment.merchant?.address?.street ? 
+                            `${assignment.merchant.address.street}, ${assignment.merchant.address.city || ''} ${assignment.merchant.address.postalCode || ''}` : 
+                            (typeof assignment.merchant?.address === 'string' ? assignment.merchant.address : 'Adresse non spécifiée')}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-500 max-w-xs break-words">
+                          {formatProductsList(assignment.items)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {assignment.event?.date ? formatDate(assignment.event.date) : 'Date non spécifiée'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Créé le: {formatDate(assignment.createdAt)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          assignment.status === 'completed' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {assignment.status === 'completed' ? 'Terminé' : 'En attente'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button className="text-primary-600 hover:text-primary-900 mr-3">
+                          Détails
+                        </button>
+                        {assignment.status !== 'completed' && (
+                          <button 
+                            className="text-green-600 hover:text-green-900"
+                            onClick={() => markAssignmentAsCompleted(assignment._id)}
+                          >
+                            Marquer terminé
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </VolunteerLayout>

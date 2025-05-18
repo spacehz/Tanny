@@ -131,7 +131,9 @@ export const updateAssignmentStatus = async (assignmentId, status) => {
       throw new Error("Statut invalide");
     }
     
+    console.log(`Mise à jour du statut de l'affectation ${assignmentId} à ${status}`);
     const response = await api.patch(`/api/assignments/${assignmentId}`, { status });
+    console.log('Réponse de mise à jour du statut:', response.data);
     return response.data;
   } catch (error) {
     console.error(`Erreur lors de la mise à jour du statut de l'affectation ${assignmentId}:`, error);
