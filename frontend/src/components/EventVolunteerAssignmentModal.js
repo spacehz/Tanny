@@ -17,11 +17,24 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
   const [volunteers, setVolunteers] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [error, setError] = useState(null);
+  const [selectedMerchants, setSelectedMerchants] = useState([]);
+  const [donationMerchants, setDonationMerchants] = useState([]);
+  const [selectedDonationMerchant, setSelectedDonationMerchant] = useState('');
+  const [selectedVolunteers, setSelectedVolunteers] = useState([]);
 
   // Charger les données des commerçants et des bénévoles lorsque le modal s'ouvre
   useEffect(() => {
     if (isOpen && event) {
       fetchData();
+      
+      // Initialiser les commerçants sélectionnés si l'événement a déjà des commerçants
+      if (event.merchants && Array.isArray(event.merchants)) {
+        setSelectedMerchants(event.merchants.map(merchant => 
+          typeof merchant === 'object' ? merchant._id : merchant
+        ));
+      } else {
+        setSelectedMerchants([]);
+      }
     }
   }, [isOpen, event]);
 
@@ -34,44 +47,78 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
       console.log('Récupération des données pour l\'événement:', event._id);
       
       // Récupérer les commerçants participants à l'événement
-      let merchants = [];
+      let eventMerchants = [];
+      let allMerchants = [];
+      
       try {
+        // Récupérer tous les commerçants disponibles
+        const allMerchantsResponse = await api.get('/api/merchants');
+        console.log('Réponse de tous les commerçants:', allMerchantsResponse);
+        allMerchants = allMerchantsResponse.data?.data || allMerchantsResponse.data || [];
+        
+        // S'assurer que allMerchants est un tableau
+        if (!Array.isArray(allMerchants)) {
+          console.error('Les données des commerçants ne sont pas un tableau:', allMerchants);
+          allMerchants = [];
+        }
+        
+        // Récupérer les commerçants déjà associés à l'événement
         const merchantsData = await api.get(`/api/events/${event._id}/merchants`);
-        console.log('Réponse des commerçants:', merchantsData);
-        merchants = merchantsData.data?.data || merchantsData.data || [];
+        console.log('Réponse des commerçants de l\'événement:', merchantsData);
+        eventMerchants = merchantsData.data?.data || merchantsData.data || [];
+        
+        // S'assurer que eventMerchants est un tableau
+        if (!Array.isArray(eventMerchants)) {
+          console.error('Les données des commerçants de l\'événement ne sont pas un tableau:', eventMerchants);
+          eventMerchants = [];
+        }
+        
+        // Marquer les commerçants qui sont déjà associés à l'événement
+        allMerchants = allMerchants.map(merchant => ({
+          ...merchant,
+          isSelected: eventMerchants.some(eventMerchant => 
+            eventMerchant._id === merchant._id || 
+            (eventMerchant.id && eventMerchant.id === merchant._id)
+          )
+        }));
       } catch (error) {
         console.error('Erreur lors de la récupération des commerçants:', error);
+        allMerchants = [];
       }
       
-      // Si aucun commerçant n'est associé à l'événement, récupérer tous les commerçants
-      if (merchants.length === 0) {
-        console.log('Aucun commerçant trouvé pour cet événement, récupération de tous les commerçants');
-        try {
-          const allMerchantsResponse = await api.get('/api/merchants');
-          console.log('Réponse de tous les commerçants:', allMerchantsResponse);
-          merchants = allMerchantsResponse.data?.data || allMerchantsResponse.data || [];
-        } catch (error) {
-          console.error('Erreur lors de la récupération de tous les commerçants:', error);
-        }
-      }
-      
-      // Récupérer les bénévoles participant à l'événement
+      // Récupérer les bénévoles participant à l'événement directement depuis l'événement
       let volunteers = [];
       try {
-        const volunteersData = await api.get(`/api/events/${event._id}/volunteers`);
-        console.log('Réponse des bénévoles:', volunteersData);
-        volunteers = volunteersData.data?.data || volunteersData.data || [];
+        // Vérifier si l'événement a déjà des bénévoles
+        if (event.volunteers && Array.isArray(event.volunteers) && event.volunteers.length > 0) {
+          console.log('Bénévoles trouvés dans l\'événement:', event.volunteers);
+          
+          // Si les bénévoles sont des objets complets, les utiliser directement
+          if (typeof event.volunteers[0] === 'object' && event.volunteers[0]._id) {
+            volunteers = event.volunteers;
+          } else {
+            // Sinon, récupérer les détails des bénévoles
+            const volunteersData = await api.get(`/api/events/${event._id}/volunteers`);
+            console.log('Réponse des bénévoles:', volunteersData);
+            volunteers = volunteersData.data?.data || volunteersData.data || [];
+          }
+        } else {
+          // Si l'événement n'a pas de bénévoles, les récupérer via l'API
+          const volunteersData = await api.get(`/api/events/${event._id}/volunteers`);
+          console.log('Réponse des bénévoles:', volunteersData);
+          volunteers = volunteersData.data?.data || volunteersData.data || [];
+          
+          // Si toujours aucun bénévole, récupérer tous les bénévoles
+          if (!volunteers.length) {
+            console.log('Aucun bénévole trouvé pour cet événement, récupération de tous les bénévoles');
+            const allVolunteersResponse = await api.get('/api/users?role=bénévole');
+            console.log('Réponse de tous les bénévoles:', allVolunteersResponse);
+            volunteers = allVolunteersResponse.data?.data || allVolunteersResponse.data || [];
+          }
+        }
       } catch (error) {
         console.error('Erreur lors de la récupération des bénévoles:', error);
-        // Si aucun bénévole n'est trouvé, récupérer tous les bénévoles
-        try {
-          console.log('Aucun bénévole trouvé pour cet événement, récupération de tous les bénévoles');
-          const allVolunteersResponse = await api.get('/api/users?role=bénévole');
-          console.log('Réponse de tous les bénévoles:', allVolunteersResponse);
-          volunteers = allVolunteersResponse.data?.data || allVolunteersResponse.data || [];
-        } catch (volunteerError) {
-          console.error('Erreur lors de la récupération de tous les bénévoles:', volunteerError);
-        }
+        volunteers = [];
       }
       
       // Récupérer les donations pour cet événement
@@ -89,8 +136,8 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
       const existingAssignments = assignmentsData.data?.data || assignmentsData.data || [];
       
       // Mettre à jour les états
-      setMerchants(merchants);
-      setVolunteers(volunteers);
+      setMerchants(Array.isArray(allMerchants) ? allMerchants : []);
+      setVolunteers(Array.isArray(volunteers) ? volunteers : []);
       
       if (existingAssignments.length > 0) {
         setAssignments(existingAssignments);
@@ -174,9 +221,55 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
   // Fonction pour enregistrer les affectations
   const handleSave = async () => {
     try {
+      // Créer des affectations pour les bénévoles sélectionnés et le commerçant sélectionné
+      let newAssignments = [...assignments];
+      
+      // Si nous avons des bénévoles sélectionnés et un commerçant sélectionné
+      if (selectedVolunteers.length > 0 && selectedDonationMerchant) {
+        // Pour chaque bénévole sélectionné
+        selectedVolunteers.forEach(volunteerId => {
+          // Vérifier si ce bénévole a déjà une affectation
+          const existingAssignmentIndex = newAssignments.findIndex(
+            assignment => assignment.volunteerId === volunteerId
+          );
+          
+          // Récupérer les items du commerçant sélectionné
+          const merchantItems = merchantDonations[selectedDonationMerchant] || [];
+          
+          if (existingAssignmentIndex !== -1) {
+            // Mettre à jour l'affectation existante
+            newAssignments[existingAssignmentIndex] = {
+              ...newAssignments[existingAssignmentIndex],
+              merchantId: selectedDonationMerchant,
+              items: merchantItems.map(item => ({
+                product: item.product || 'Article sans nom',
+                quantity: item.quantity || 1,
+                unit: item.unit || 'kg'
+              }))
+            };
+          } else {
+            // Créer une nouvelle affectation
+            const volunteer = volunteers.find(v => v._id === volunteerId);
+            newAssignments.push({
+              volunteerId: volunteerId,
+              volunteerName: volunteer?.name || 'Bénévole',
+              merchantId: selectedDonationMerchant,
+              items: merchantItems.map(item => ({
+                product: item.product || 'Article sans nom',
+                quantity: item.quantity || 1,
+                unit: item.unit || 'kg'
+              }))
+            });
+          }
+        });
+      }
+      
+      // Mettre à jour l'état des affectations
+      setAssignments(newAssignments);
+      
       // Filtrer les affectations incomplètes
-      const validAssignments = assignments.filter(
-        assignment => assignment.merchantId && assignment.items.length > 0
+      const validAssignments = newAssignments.filter(
+        assignment => assignment.merchantId
       );
       
       console.log('Enregistrement des affectations:', validAssignments);
@@ -185,6 +278,19 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
       await api.post(`/api/events/${event._id}/assignments`, {
         assignments: validAssignments
       });
+      
+      // Enregistrer les commerçants sélectionnés pour l'événement
+      if (selectedMerchants.length > 0) {
+        try {
+          console.log('Enregistrement des commerçants sélectionnés:', selectedMerchants);
+          await api.put(`/api/events/${event._id}`, {
+            merchants: selectedMerchants
+          });
+        } catch (merchantError) {
+          console.error('Erreur lors de l\'enregistrement des commerçants:', merchantError);
+          // Continuer malgré l'erreur pour ne pas bloquer l'enregistrement des affectations
+        }
+      }
       
       // Fermer le modal et notifier le parent
       onClose();
@@ -213,6 +319,26 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
     }
   }, [isOpen, event]);
   
+  // Mettre à jour les commerçants sélectionnés lorsque le commerçant sélectionné dans le dropdown change
+  useEffect(() => {
+    if (selectedDonationMerchant) {
+      // Si un commerçant est sélectionné dans le dropdown et qu'il n'est pas déjà dans la liste des commerçants sélectionnés
+      if (!selectedMerchants.includes(selectedDonationMerchant)) {
+        setSelectedMerchants(prev => [...prev, selectedDonationMerchant]);
+      }
+    }
+  }, [selectedDonationMerchant]);
+  
+  // Mettre à jour l'affectation lorsque les bénévoles sélectionnés changent
+  useEffect(() => {
+    if (selectedVolunteers.length > 0 && selectedDonationMerchant) {
+      // Affecter le commerçant sélectionné à tous les bénévoles sélectionnés
+      selectedVolunteers.forEach(volunteerId => {
+        handleMerchantAssignment(volunteerId, selectedDonationMerchant);
+      });
+    }
+  }, [selectedVolunteers, selectedDonationMerchant]);
+  
   // Fonction pour récupérer les donations
   const fetchDonations = async () => {
     try {
@@ -223,32 +349,85 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
       
       // Organiser les donations par commerçant
       const donationsByMerchant = {};
+      const uniqueMerchants = new Map();
       
       if (donations && donations.length > 0) {
         donations.forEach(donation => {
           if (donation.merchant && donation.merchant._id) {
             // Si merchant est un objet avec un _id
-            if (!donationsByMerchant[donation.merchant._id]) {
-              donationsByMerchant[donation.merchant._id] = [];
+            const merchantId = donation.merchant._id;
+            
+            if (!donationsByMerchant[merchantId]) {
+              donationsByMerchant[merchantId] = [];
             }
-            donationsByMerchant[donation.merchant._id] = donation.items;
+            
+            // Ajouter les items à la liste des donations du commerçant
+            if (donation.items && Array.isArray(donation.items)) {
+              donationsByMerchant[merchantId] = donation.items;
+            }
+            
+            // Ajouter le commerçant à la liste des commerçants uniques
+            uniqueMerchants.set(merchantId, {
+              _id: merchantId,
+              businessName: donation.merchant.businessName || 'Commerçant sans nom',
+              name: donation.merchant.name || donation.merchant.businessName || 'Commerçant sans nom'
+            });
           } else if (donation.merchant) {
             // Si merchant est directement un ID
-            if (!donationsByMerchant[donation.merchant]) {
-              donationsByMerchant[donation.merchant] = [];
+            const merchantId = donation.merchant;
+            
+            if (!donationsByMerchant[merchantId]) {
+              donationsByMerchant[merchantId] = [];
             }
-            donationsByMerchant[donation.merchant] = donation.items;
+            
+            // Ajouter les items à la liste des donations du commerçant
+            if (donation.items && Array.isArray(donation.items)) {
+              donationsByMerchant[merchantId] = donation.items;
+            }
+            
+            // Pour les IDs simples, nous devons récupérer les détails du commerçant
+            if (!uniqueMerchants.has(merchantId)) {
+              // Chercher le commerçant dans la liste des commerçants
+              const merchantDetails = merchants.find(m => m._id === merchantId);
+              if (merchantDetails) {
+                uniqueMerchants.set(merchantId, {
+                  _id: merchantId,
+                  businessName: merchantDetails.businessName || 'Commerçant sans nom',
+                  name: merchantDetails.name || merchantDetails.businessName || 'Commerçant sans nom'
+                });
+              } else {
+                // Si nous n'avons pas les détails, utiliser juste l'ID
+                uniqueMerchants.set(merchantId, {
+                  _id: merchantId,
+                  businessName: 'Commerçant ' + merchantId,
+                  name: 'Commerçant ' + merchantId
+                });
+              }
+            }
           }
         });
       }
       
       console.log('Donations organisées par commerçant:', donationsByMerchant);
       setMerchantDonations(donationsByMerchant);
+      
+      // Convertir la Map en tableau pour l'état
+      const merchantsArray = Array.from(uniqueMerchants.values());
+      console.log('Commerçants ayant fait des donations:', merchantsArray);
+      setDonationMerchants(merchantsArray);
     } catch (error) {
       console.error('Erreur lors du chargement des donations:', error);
     }
   };
   
+  // Filtrer les commerçants en fonction de la sélection
+  const getFilteredMerchants = () => {
+    if (selectedDonationMerchant) {
+      return merchants.filter(merchant => merchant._id === selectedDonationMerchant);
+    }
+    return merchants;
+  };
+
   // Récupérer les articles disponibles pour un commerçant donné
   const getMerchantItems = (merchantId) => {
     console.log('Récupération des articles pour le commerçant:', merchantId);
@@ -273,10 +452,10 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
     // Si aucune donation n'est trouvée, retourner des articles par défaut
     console.log('Aucun article trouvé pour ce commerçant, utilisation des articles par défaut');
     return [
-      { id: `${merchantId}-1`, name: 'Fruits et légumes', unit: 'kg' },
-      { id: `${merchantId}-2`, name: 'Produits laitiers', unit: 'kg' },
-      { id: `${merchantId}-3`, name: 'Produits secs', unit: 'kg' },
-      { id: `${merchantId}-4`, name: 'Produits frais', unit: 'unité' }
+      { id: `${merchantId}-default-1`, name: 'Pain', quantity: 1, unit: 'kg' },
+      { id: `${merchantId}-default-2`, name: 'Légumes', quantity: 1, unit: 'kg' },
+      { id: `${merchantId}-default-3`, name: 'Fruits', quantity: 1, unit: 'kg' },
+      { id: `${merchantId}-default-4`, name: 'Produits laitiers', quantity: 1, unit: 'kg' }
     ];
   };
 
@@ -332,138 +511,103 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
           </div>
         ) : (
           <>
-            {/* Liste des commerçants participants */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Commerçants participants</h3>
-              {merchants.length > 0 ? (
-                <div className="bg-white shadow overflow-hidden rounded-md">
-                  <ul className="divide-y divide-gray-200">
-                    {merchants.map(merchant => (
-                      <li key={merchant._id} className="px-6 py-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-gray-900">{merchant.businessName || merchant.name || 'Commerçant sans nom'}</p>
-                            <p className="text-sm text-gray-500">
-                              {merchant.address?.street ? 
-                                `${merchant.address.street}, ${merchant.address.city || ''}` : 
-                                'Adresse non spécifiée'}
-                            </p>
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {merchant.phoneNumber || 'Téléphone non spécifié'}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <p className="text-gray-500">Aucun commerçant participant à cet événement.</p>
-              )}
-            </div>
-
-            {/* Liste des bénévoles et affectations */}
+            {/* Liste des bénévoles */}
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Affectation des bénévoles</h3>
-              {volunteers.length > 0 ? (
-                <div className="space-y-4">
-                  {volunteers.map(volunteer => {
-                    const assignment = assignments.find(a => a.volunteerId === volunteer._id) || {
-                      volunteerId: volunteer._id,
-                      merchantId: '',
-                      items: []
-                    };
-                    
-                    return (
-                      <div key={volunteer._id} className="bg-white shadow overflow-hidden rounded-md p-4">
-                        <h4 className="font-medium text-gray-900 mb-3">{volunteer.name || 'Bénévole sans nom'}</h4>
-                        
-                        {/* Sélection du commerçant */}
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Commerçant assigné
+              <div className="bg-white shadow overflow-hidden rounded-md p-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sélectionner des bénévoles
+                  </label>
+                  
+                  {/* Multi-select pour les bénévoles */}
+                  <div className="mt-1 border border-gray-300 rounded-md p-2 max-h-60 overflow-y-auto">
+                    {volunteers.length > 0 ? (
+                      volunteers.map(volunteer => (
+                        <div key={volunteer._id} className="flex items-center p-2 hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            id={`volunteer-${volunteer._id}`}
+                            checked={selectedVolunteers.includes(volunteer._id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedVolunteers(prev => [...prev, volunteer._id]);
+                              } else {
+                                setSelectedVolunteers(prev => prev.filter(id => id !== volunteer._id));
+                              }
+                            }}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor={`volunteer-${volunteer._id}`} className="ml-3 flex-1 cursor-pointer">
+                            <div className="font-medium text-gray-900">{volunteer.name || 'Bénévole sans nom'}</div>
                           </label>
-                          <select
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                            value={assignment.merchantId}
-                            onChange={(e) => handleMerchantAssignment(volunteer._id, e.target.value)}
-                          >
-                            <option value="">Sélectionner un commerçant</option>
-                            {merchants.map(merchant => (
-                              <option key={merchant._id} value={merchant._id}>
-                                {merchant.businessName || merchant.name || 'Commerçant sans nom'}
-                              </option>
-                            ))}
-                          </select>
                         </div>
-                        
-                        {/* Sélection des articles si un commerçant est sélectionné */}
-                        {assignment.merchantId && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Articles à collecter
-                            </label>
-                            
-                            <div className="mt-2 space-y-2">
-                              {getMerchantItems(assignment.merchantId).map(item => {
-                                const assignedItem = assignment.items.find(i => i.id === item.id);
-                                const isSelected = !!assignedItem;
-                                
-                                return (
-                                  <div key={item.id} className="flex items-center space-x-3">
-                                    <input
-                                      type="checkbox"
-                                      id={`item-${volunteer._id}-${item.id}`}
-                                      checked={isSelected}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          // Ajouter l'article
-                                          handleItemAssignment(volunteer._id, [
-                                            ...assignment.items,
-                                            { id: item.id, name: item.name, unit: item.unit, quantity: 1 }
-                                          ]);
-                                        } else {
-                                          // Retirer l'article
-                                          handleItemAssignment(
-                                            volunteer._id,
-                                            assignment.items.filter(i => i.id !== item.id)
-                                          );
-                                        }
-                                      }}
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    />
-                                    <label htmlFor={`item-${volunteer._id}-${item.id}`} className="flex-1 text-sm text-gray-700">
-                                      {item.name}
-                                    </label>
-                                    
-                                    {isSelected && (
-                                      <div className="flex items-center">
-                                        <input
-                                          type="number"
-                                          min="0.1"
-                                          step="0.1"
-                                          value={assignedItem.quantity}
-                                          onChange={(e) => {
-                                            const itemIndex = assignment.items.findIndex(i => i.id === item.id);
-                                            handleQuantityChange(volunteer._id, itemIndex, e.target.value);
-                                          }}
-                                          className="block w-20 pl-2 pr-2 py-1 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-                                        />
-                                        <span className="ml-2 text-sm text-gray-500">{item.unit}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
+                      ))
+                    ) : (
+                      <div className="text-center text-gray-500 py-2">
+                        Aucun bénévole participant à cet événement
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
+                  
+                  <div className="mt-2 text-sm text-gray-500">
+                    {selectedVolunteers.length} bénévole(s) sélectionné(s)
+                  </div>
                 </div>
-              ) : (
-                <p className="text-gray-500">Aucun bénévole participant à cet événement.</p>
+              </div>
+            </div>
+            
+            {/* Sélection des commerçants ayant fait des donations */}
+            <div className="bg-gray-50 p-4 rounded-lg mt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Commerçants participants (via donations)</h3>
+              <div className="mb-4">
+                <label htmlFor="donation-merchant-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  Sélectionner un commerçant
+                </label>
+                <select
+                  id="donation-merchant-select"
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  value={selectedDonationMerchant}
+                  onChange={(e) => setSelectedDonationMerchant(e.target.value)}
+                >
+                  <option value="">Tous les commerçants</option>
+                  {donationMerchants.map(merchant => (
+                    <option key={merchant._id} value={merchant._id}>
+                      {merchant.businessName || merchant.name || 'Commerçant sans nom'}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-sm text-gray-500">
+                  {donationMerchants.length} commerçant(s) ont fait des donations pour cet événement
+                </p>
+              </div>
+              
+              {/* Affichage des dons du commerçant sélectionné */}
+              {selectedDonationMerchant && (
+                <div className="mt-4 border-t pt-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Dons proposés par ce commerçant</h4>
+                  
+                  {merchantDonations[selectedDonationMerchant] && merchantDonations[selectedDonationMerchant].length > 0 ? (
+                    <div className="bg-white shadow overflow-hidden rounded-md">
+                      <ul className="divide-y divide-gray-200">
+                        {merchantDonations[selectedDonationMerchant].map((item, index) => (
+                          <li key={index} className="px-4 py-3">
+                            <div className="flex justify-between">
+                              <div className="text-sm font-medium text-gray-900">{item.product || 'Article sans nom'}</div>
+                              <div className="text-sm text-gray-500">
+                                {item.quantity} {item.unit || 'kg'}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="bg-white shadow overflow-hidden rounded-md p-4 text-center text-gray-500">
+                      Aucune donation enregistrée pour ce commerçant.
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </>
