@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
 import { getMerchantDonations } from '../services/donationService';
 import { toast } from 'react-toastify';
+import DonationStats from '../components/DonationStats';
 
 const MerchantDonations = () => {
   const { user, isAuthenticated, isMerchant } = useAuth();
@@ -15,6 +16,7 @@ const MerchantDonations = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [viewMode, setViewMode] = useState('history'); // 'history' ou 'stats'
   
   // Utiliser des références pour suivre l'état sans créer de dépendances cycliques
   const currentPageRef = useRef(currentPage);
@@ -296,9 +298,41 @@ const MerchantDonations = () => {
             Merci pour votre contribution à la lutte contre le gaspillage alimentaire !
           </p>
         </div>
+        
+        {/* Navigation entre les vues */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
+            <button
+              type="button"
+              onClick={() => setViewMode('history')}
+              className={`px-6 py-3 text-base font-medium rounded-l-lg ${
+                viewMode === 'history'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Historique
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('stats')}
+              className={`px-6 py-3 text-base font-medium rounded-r-lg ${
+                viewMode === 'stats'
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Statistiques
+            </button>
+          </div>
+        </div>
 
-        {/* Tableau des donations */}
-        <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8 w-full">
+        {/* Afficher les statistiques ou l'historique en fonction du mode */}
+        {viewMode === 'stats' ? (
+          <DonationStats donations={donations} />
+        ) : (
+          /* Tableau des donations */
+          <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 mb-8 w-full">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold text-primary-600">Mes dons</h2>
             <div className="flex items-center space-x-4">
@@ -458,6 +492,7 @@ const MerchantDonations = () => {
             </div>
           )}
         </div>
+        )}
       </div>
     </Layout>
   );
