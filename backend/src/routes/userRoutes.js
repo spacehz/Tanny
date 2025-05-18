@@ -1,6 +1,7 @@
 const express = require('express');
 const { check, validationResult } = require('express-validator');
 const userController = require('../controllers/userController');
+const assignmentController = require('../controllers/assignmentController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -54,6 +55,9 @@ router.route('/volunteers/:id')
   .get(protect, admin, userController.getVolunteerById)
   .put(protect, admin, userController.updateVolunteer)
   .delete(protect, admin, userController.deleteVolunteer);
+
+// Route pour récupérer les affectations d'un bénévole
+router.get('/volunteers/:id/assignments', protect, assignmentController.getVolunteerAssignments);
 
 // Routes admin pour les commerçants
 router.route('/merchants')

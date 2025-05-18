@@ -26,7 +26,7 @@ const assignmentSchema = new mongoose.Schema(
       {
         id: {
           type: String,
-          required: true
+          required: false // Rendre l'ID optionnel
         },
         name: {
           type: String,
@@ -35,11 +35,11 @@ const assignmentSchema = new mongoose.Schema(
         quantity: {
           type: Number,
           required: true,
-          min: 0.1
+          min: 0 // Permettre des quantités à partir de 0
         },
         unit: {
           type: String,
-          enum: ['kg', 'g', 'l', 'unité'],
+          enum: ['kg', 'g', 'l', 'unité', 'ml', 'pièce'], // Ajouter plus d'unités possibles
           default: 'kg'
         }
       }

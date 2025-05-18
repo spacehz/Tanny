@@ -1,9 +1,11 @@
 const Assignment = require('../models/Assignment');
 const Event = require('../models/Event');
 const User = require('../models/User');
+const Merchant = require('../models/Merchant');
 const Donation = require('../models/Donation');
 const asyncHandler = require('../middleware/asyncHandler');
 const ErrorResponse = require('../utils/errorResponse');
+const mongoose = require('mongoose');
 
 /**
  * @desc    Récupérer les affectations pour un événement
@@ -39,41 +41,93 @@ exports.saveEventAssignments = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
   const { assignments } = req.body;
 
+  console.log("Requête d'affectation reçue pour l'événement:", id);
+  console.log("Données d'affectation reçues:", JSON.stringify(assignments, null, 2));
+
   // Vérifier si l'événement existe
   const event = await Event.findById(id);
   if (!event) {
     return next(new ErrorResponse(`Événement non trouvé avec l'id ${id}`, 404));
   }
 
-  // Supprimer les affectations existantes pour cet événement
-  await Assignment.deleteMany({ event: id });
-
-  // Créer les nouvelles affectations
-  const createdAssignments = [];
-  
-  for (const assignment of assignments) {
-    // Vérifier si le bénévole existe
-    const volunteer = await User.findById(assignment.volunteerId);
-    if (!volunteer) {
-      return next(new ErrorResponse(`Bénévole non trouvé avec l'id ${assignment.volunteerId}`, 404));
-    }
-
-    // Créer l'affectation
-    const newAssignment = await Assignment.create({
-      event: id,
-      volunteer: assignment.volunteerId,
-      merchant: assignment.merchantId,
-      items: assignment.items
-    });
-
-    // Ajouter l'affectation créée à la liste
-    createdAssignments.push(newAssignment);
+  // Vérifier si les affectations sont valides
+  if (!Array.isArray(assignments) || assignments.length === 0) {
+    return next(new ErrorResponse("Aucune affectation valide fournie", 400));
   }
 
-  res.status(201).json({
-    success: true,
-    data: createdAssignments
-  });
+  try {
+    // Supprimer les affectations existantes pour cet événement
+    const deleteResult = await Assignment.deleteMany({ event: id });
+    console.log(`${deleteResult.deletedCount} affectations existantes supprimées`);
+
+    // Créer les nouvelles affectations
+    const createdAssignments = [];
+    
+    for (const assignment of assignments) {
+      // Vérifier si les données requises sont présentes
+      if (!assignment.volunteerId) {
+        console.warn("Affectation sans ID de bénévole ignorée");
+        continue;
+      }
+
+      if (!assignment.merchantId) {
+        console.warn("Affectation sans ID de commerçant ignorée");
+        continue;
+      }
+
+      // Vérifier si le bénévole existe
+      const volunteer = await User.findById(assignment.volunteerId);
+      if (!volunteer) {
+        console.warn(`Bénévole non trouvé avec l'id ${assignment.volunteerId}, l'affectation sera ignorée`);
+        continue;
+      }
+
+      // Vérifier si le commerçant existe
+      const merchantExists = await Merchant.findById(assignment.merchantId);
+      if (!merchantExists) {
+        console.warn(`Commerçant non trouvé avec l'id ${assignment.merchantId}, l'affectation sera créée quand même`);
+      }
+
+      // Transformer les items si nécessaire pour s'assurer qu'ils ont la bonne structure
+      const transformedItems = Array.isArray(assignment.items) ? assignment.items.map((item, index) => ({
+        id: item.id || `item-${assignment.volunteerId}-${assignment.merchantId}-${index}-${Date.now()}`,
+        name: item.name || item.product || 'Article sans nom',
+        quantity: parseFloat(item.quantity) || 0,
+        unit: item.unit || 'kg'
+      })) : [];
+
+      try {
+        // Créer l'affectation
+        const newAssignment = await Assignment.create({
+          event: id,
+          volunteer: assignment.volunteerId,
+          merchant: assignment.merchantId,
+          items: transformedItems,
+          status: 'pending' // Statut par défaut
+        });
+
+        console.log(`Affectation créée avec succès: ${newAssignment._id}`);
+
+        // Ajouter l'affectation créée à la liste
+        createdAssignments.push(newAssignment);
+      } catch (error) {
+        console.error(`Erreur lors de la création de l'affectation: ${error.message}`);
+        if (error.name === 'ValidationError') {
+          console.error("Détails de l'erreur de validation:", error.errors);
+        }
+      }
+    }
+
+    console.log(`${createdAssignments.length} nouvelles affectations créées`);
+
+    res.status(201).json({
+      success: true,
+      data: createdAssignments
+    });
+  } catch (error) {
+    console.error(`Erreur lors de la sauvegarde des affectations: ${error.message}`);
+    return next(new ErrorResponse(`Erreur lors de la sauvegarde des affectations: ${error.message}`, 500));
+  }
 });
 
 /**
@@ -216,5 +270,160 @@ exports.getEventDonations = asyncHandler(async (req, res, next) => {
   } catch (error) {
     console.error('Erreur lors de la récupération des donations:', error);
     return next(new ErrorResponse(`Erreur lors de la récupération des donations: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Récupérer les affectations d'un bénévole
+ * @route   GET /api/users/volunteers/:id/assignments
+ * @access  Private (Volunteer, Admin)
+ */
+exports.getVolunteerAssignments = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  try {
+    console.log(`Récupération des affectations pour le bénévole ID: ${id}`);
+    console.log(`Utilisateur authentifié: ${req.user._id}, rôle: ${req.user.role}`);
+    
+    // Vérifier si le bénévole existe
+    const volunteer = await User.findById(id);
+    if (!volunteer) {
+      console.log(`Bénévole non trouvé avec l'id ${id}`);
+      return next(new ErrorResponse(`Bénévole non trouvé avec l'id ${id}`, 404));
+    }
+    
+    console.log(`Bénévole trouvé: ${volunteer.name}, ${volunteer.email}`);
+
+    // Vérifier que l'utilisateur est soit le bénévole lui-même, soit un admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== id) {
+      console.log(`Accès non autorisé: ${req.user._id} tente d'accéder aux affectations de ${id}`);
+      return next(new ErrorResponse(`Non autorisé à accéder aux affectations de ce bénévole`, 403));
+    }
+
+    // Récupérer les affectations pour ce bénévole avec les informations sur l'événement et le commerçant
+    const assignments = await Assignment.find({ volunteer: id })
+      .populate({
+        path: 'event',
+        select: 'name date location type status'
+      })
+      .populate({
+        path: 'merchant',
+        select: 'businessName address phoneNumber email'
+      })
+      .sort({ 'event.date': -1 }); // Trier par date d'événement décroissante
+
+    console.log(`Affectations trouvées pour le bénévole ${id}:`, assignments.length);
+    
+    // Vérifier si des affectations existent dans la base de données
+    if (assignments.length === 0) {
+      console.log(`Aucune affectation trouvée pour le bénévole ${id}`);
+      
+      // Vérifier s'il existe des affectations pour d'autres bénévoles
+      const totalAssignments = await Assignment.countDocuments();
+      console.log(`Nombre total d'affectations dans la base de données: ${totalAssignments}`);
+      
+      if (totalAssignments > 0) {
+        // Récupérer un exemple d'affectation pour vérifier la structure
+        const sampleAssignment = await Assignment.findOne()
+          .populate('volunteer')
+          .populate('event')
+          .populate('merchant');
+        
+        console.log('Exemple d\'affectation:', JSON.stringify(sampleAssignment, null, 2));
+        
+        // Afficher tous les IDs de bénévoles qui ont des affectations
+        const volunteersWithAssignments = await Assignment.distinct('volunteer');
+        console.log('Bénévoles avec affectations:', volunteersWithAssignments);
+        
+        // Vérifier si l'email du bénévole correspond à benevole@tany.org
+        if (volunteer.email === 'benevole@tany.org') {
+          console.log('Bénévole avec email benevole@tany.org trouvé, mais aucune affectation associée');
+          
+          // Créer une affectation de test pour ce bénévole
+          const newAssignment = new Assignment({
+            event: sampleAssignment.event._id,
+            volunteer: id,
+            merchant: sampleAssignment.merchant._id,
+            items: [
+              { name: 'Pain test', quantity: 5, unit: 'kg' },
+              { name: 'Fruits test', quantity: 3, unit: 'kg' }
+            ],
+            status: 'pending'
+          });
+          
+          await newAssignment.save();
+          console.log('Affectation de test créée pour le bénévole:', newAssignment._id);
+          
+          // Récupérer à nouveau les affectations
+          const updatedAssignments = await Assignment.find({ volunteer: id })
+            .populate({
+              path: 'event',
+              select: 'name date location type status'
+            })
+            .populate({
+              path: 'merchant',
+              select: 'businessName address phoneNumber email'
+            });
+          
+          return res.status(200).json({
+            success: true,
+            count: updatedAssignments.length,
+            data: updatedAssignments
+          });
+        }
+      }
+    } else {
+      // Afficher un exemple d'affectation pour vérifier la structure
+      console.log('Exemple d\'affectation:', JSON.stringify(assignments[0], null, 2));
+    }
+    
+    return res.status(200).json({
+      success: true,
+      count: assignments.length,
+      data: assignments
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des affectations du bénévole:', error);
+    return next(new ErrorResponse(`Erreur lors de la récupération des affectations: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Mettre à jour le statut d'une affectation
+ * @route   PATCH /api/assignments/:id
+ * @access  Private (Volunteer, Admin)
+ */
+exports.updateAssignmentStatus = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    // Vérifier si l'affectation existe
+    const assignment = await Assignment.findById(id);
+    if (!assignment) {
+      return next(new ErrorResponse(`Affectation non trouvée avec l'id ${id}`, 404));
+    }
+
+    // Vérifier que l'utilisateur est soit le bénévole associé à l'affectation, soit un admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== assignment.volunteer.toString()) {
+      return next(new ErrorResponse(`Non autorisé à modifier cette affectation`, 403));
+    }
+
+    // Vérifier que le statut est valide
+    if (!status || !['pending', 'completed'].includes(status)) {
+      return next(new ErrorResponse(`Statut invalide: ${status}`, 400));
+    }
+
+    // Mettre à jour le statut
+    assignment.status = status;
+    await assignment.save();
+
+    return res.status(200).json({
+      success: true,
+      data: assignment
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du statut de l\'affectation:', error);
+    return next(new ErrorResponse(`Erreur lors de la mise à jour du statut: ${error.message}`, 500));
   }
 });

@@ -181,6 +181,75 @@ export const useVolunteers = (page = 1, limit = 10, search = '', availability = 
  * Hook to fetch dashboard statistics
  * @returns {Object} SWR response with counts for volunteers, merchants, collections, and upcoming markets
  */
+/**
+ * Hook to fetch assignments for a volunteer
+ * @param {string} volunteerId - Volunteer ID
+ * @returns {Object} SWR response with data, error, isLoading, and mutate
+ */
+export const useVolunteerAssignments = (volunteerId) => {
+  console.log('useVolunteerAssignments appelé avec ID:', volunteerId);
+  
+  const { data, error, isLoading, mutate } = useSWR(
+    volunteerId ? `/api/users/volunteers/${volunteerId}/assignments` : null,
+    async (url) => {
+      // Utiliser un fetcher personnalisé pour mieux gérer les erreurs
+      try {
+        console.log('Fetching assignments from URL:', url);
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        
+        const jsonData = await response.json();
+        console.log('Données brutes reçues:', jsonData);
+        
+        return jsonData;
+      } catch (err) {
+        console.error('Erreur dans le fetcher personnalisé:', err);
+        throw err;
+      }
+    },
+    {
+      revalidateOnFocus: true,
+      refreshInterval: 10000, // Rafraîchir toutes les 10 secondes
+      dedupingInterval: 2000, // Intervalle de dédoublonnage de 2 secondes
+      errorRetryCount: 3,
+      shouldRetryOnError: true,
+      revalidateOnReconnect: true,
+      refreshWhenHidden: false, // Ne pas rafraîchir quand la page est cachée
+      refreshWhenOffline: false // Ne pas rafraîchir quand hors ligne
+    }
+  );
+  
+  console.log('Assignments data from API:', data);
+  console.log('Assignments error:', error);
+  console.log('Assignments isLoading:', isLoading);
+  
+  // Vérifier si les données sont dans le format attendu
+  let assignments = [];
+  if (data && data.success && Array.isArray(data.data)) {
+    assignments = data.data;
+    console.log('Assignments formatés:', assignments);
+  } else if (data && Array.isArray(data)) {
+    // Si les données sont directement un tableau
+    assignments = data;
+    console.log('Assignments formatés (format alternatif):', assignments);
+  } else {
+    console.log('Format de données incorrect ou données manquantes');
+    console.log('Type de data:', typeof data);
+    console.log('Structure de data:', JSON.stringify(data, null, 2));
+  }
+  
+  return {
+    assignments,
+    rawData: data,
+    error,
+    isLoading,
+    mutate
+  };
+};
+
 export const useDashboardStats = () => {
   // Fetch volunteers count
   const volunteersResult = useVolunteers(1, 1);

@@ -241,8 +241,9 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
             newAssignments[existingAssignmentIndex] = {
               ...newAssignments[existingAssignmentIndex],
               merchantId: selectedDonationMerchant,
-              items: merchantItems.map(item => ({
-                product: item.product || 'Article sans nom',
+              items: merchantItems.map((item, index) => ({
+                id: `${selectedDonationMerchant}-${index}-${Date.now()}`, // Générer un ID unique
+                name: item.product || 'Article sans nom',
                 quantity: item.quantity || 1,
                 unit: item.unit || 'kg'
               }))
@@ -254,8 +255,9 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
               volunteerId: volunteerId,
               volunteerName: volunteer?.name || 'Bénévole',
               merchantId: selectedDonationMerchant,
-              items: merchantItems.map(item => ({
-                product: item.product || 'Article sans nom',
+              items: merchantItems.map((item, index) => ({
+                id: `${selectedDonationMerchant}-${index}-${Date.now()}`, // Générer un ID unique
+                name: item.product || 'Article sans nom',
                 quantity: item.quantity || 1,
                 unit: item.unit || 'kg'
               }))
@@ -274,10 +276,8 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
       
       console.log('Enregistrement des affectations:', validAssignments);
       
-      // Envoyer les affectations au serveur
-      await api.post(`/api/events/${event._id}/assignments`, {
-        assignments: validAssignments
-      });
+      // Envoyer les affectations au serveur en utilisant le service d'affectation
+      await saveEventAssignments(event._id, validAssignments);
       
       // Enregistrer les commerçants sélectionnés pour l'événement
       if (selectedMerchants.length > 0) {

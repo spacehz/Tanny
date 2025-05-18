@@ -10,6 +10,7 @@ const eventRoutes = require('./routes/eventRoutes');
 const merchantRoutes = require('./routes/merchantRoutes');
 const merchantAuthRoutes = require('./routes/merchantAuthRoutes');
 const donationRoutes = require('./routes/donationRoutes');
+const assignmentRoutes = require('./routes/assignmentRoutes');
 
 // Chargement des variables d'environnement
 dotenv.config();
@@ -67,6 +68,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/merchants', merchantRoutes);
 app.use('/api/merchants/auth', merchantAuthRoutes);
 app.use('/api/donations', donationRoutes);
+app.use('/api/assignments', assignmentRoutes);
 
 // Route de base
 app.get('/', (req, res) => {
