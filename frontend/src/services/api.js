@@ -6,25 +6,37 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Always include credentials with requests
   timeout: 10000, // 10 seconds timeout to prevent hanging requests
 });
 
 // Add a request interceptor to include CSRF token
 api.interceptors.request.use(
   async (config) => {
-    // Ajouter withCredentials pour envoyer les cookies avec chaque requête
-    config.withCredentials = true;
-    
     // Pour les requêtes qui modifient des données, obtenir un token CSRF
     if (['post', 'put', 'delete', 'patch'].includes(config.method) && 
         !config.url.includes('/api/users/login') && 
         !config.url.includes('/api/users/register') &&
         !config.url.includes('/api/users/refresh-token')) {
       try {
-        const response = await axios.get(`${config.baseURL}/api/csrf-token`, { withCredentials: true });
-        config.headers['X-CSRF-Token'] = response.data.csrfToken;
+        console.log('Getting CSRF token for request:', config.url);
+        const response = await axios.get(`${config.baseURL}/api/csrf-token`, { 
+          withCredentials: true 
+        });
+        
+        if (response.data && response.data.csrfToken) {
+          console.log('CSRF token obtained successfully');
+          config.headers['X-CSRF-Token'] = response.data.csrfToken;
+        } else {
+          console.error('CSRF token response invalid:', response.data);
+        }
       } catch (error) {
         console.error('Erreur lors de la récupération du token CSRF:', error);
+        // Log more details about the error
+        if (error.response) {
+          console.error('Response status:', error.response.status);
+          console.error('Response data:', error.response.data);
+        }
       }
     }
     

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useAuth } from '../context/AuthContext';
 
 // Icônes (utilisation de SVG inline pour simplicité)
 const DashboardIcon = () => (
@@ -50,6 +51,8 @@ const MenuIconExpanded = () => (
 export default function MerchantSidebar({ onCollapse }) {
   // État pour suivre si le composant est monté
   const [mounted, setMounted] = useState(false);
+  // Obtenir les informations de l'utilisateur depuis le contexte d'authentification
+  const { user } = useAuth();
   
   // Effet pour s'assurer que le composant est correctement monté côté client
   useEffect(() => {
@@ -78,12 +81,25 @@ const DonationsIcon = () => (
   </svg>
 );
 
-const menuItems = [
+// Définir les éléments du menu en fonction du rôle
+const getMenuItems = (userRole) => {
+  // Menu de base pour tous les commerçants
+  const baseMenuItems = [
     {
       name: 'Dashboard',
       icon: <DashboardIcon />,
       path: '/merchant',
     },
+    {
+      name: 'Mes Dons',
+      icon: <DonationsIcon />,
+      path: '/merchant-donations',
+    }
+  ];
+  
+  // Menu complet pour les administrateurs ou pour le développement
+  const fullMenuItems = [
+    ...baseMenuItems,
     {
       name: 'Mes Produits',
       icon: <ProductsIcon />,
@@ -95,11 +111,6 @@ const menuItems = [
       path: '/merchant/collections',
     },
     {
-      name: 'Mes Dons',
-      icon: <DonationsIcon />,
-      path: '/merchant-donations',
-    },
-    {
       name: 'Statistiques',
       icon: <StatsIcon />,
       path: '/merchant/stats',
@@ -108,8 +119,28 @@ const menuItems = [
       name: 'Mon Profil',
       icon: <ProfileIcon />,
       path: '/merchant/profile',
-    },
+    }
   ];
+  
+  // Si l'utilisateur est admin, montrer tous les éléments du menu
+  if (userRole === 'admin') {
+    return fullMenuItems;
+  }
+  
+  // Pour les commerçants normaux, montrer seulement le menu de base
+  return baseMenuItems;
+};
+
+// Mettre à jour les éléments du menu lorsque l'utilisateur change
+const [menuItems, setMenuItems] = useState([]);
+
+// Effet pour mettre à jour les éléments du menu lorsque l'utilisateur change
+useEffect(() => {
+  if (mounted && user) {
+    const items = getMenuItems(user.role);
+    setMenuItems(items);
+  }
+}, [mounted, user]);
 
   return (
     <div 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Head from 'next/head';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/layout/Layout';
@@ -123,8 +124,20 @@ const MerchantDashboard = () => {
         return;
       }
       
+      // Filtrer strictement pour n'inclure que les événements de type "collecte" et exclure les événements de type "marché"
+      const strictlyFilteredEvents = collecteEvents.filter(event => {
+        // Vérifier si le type est exactement "collecte"
+        const isCollecte = event.type === 'collecte';
+        // Vérifier que ce n'est pas un événement de type "marché"
+        const isNotMarche = event.type !== 'marché';
+        // Ne garder que les événements qui sont de type collecte et pas de type marché
+        return isCollecte && isNotMarche;
+      });
+      
+      console.log('Événements strictement filtrés:', strictlyFilteredEvents);
+      
       // Ajouter un ID temporaire si nécessaire pour éviter les erreurs de clé React
-      const eventsWithIds = collecteEvents.map(event => ({
+      const eventsWithIds = strictlyFilteredEvents.map(event => ({
         ...event,
         _id: event._id || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       }));
@@ -307,12 +320,39 @@ const MerchantDashboard = () => {
   // Gérer la soumission du formulaire de donation
   const handleDonationSubmit = async (donationData) => {
     try {
-      await createDonation(donationData);
+      setEventsLoading(true); // Indiquer que le traitement est en cours
+      
+      // Envoyer la donation au backend
+      const response = await createDonation(donationData);
+      
+      // Afficher un message de succès
       toast.success('Votre don a été enregistré avec succès');
+      
+      // Proposer de voir les dons
+      const viewDonations = window.confirm('Votre don a été enregistré avec succès. Voulez-vous consulter la liste de vos dons?');
+      
+      if (viewDonations) {
+        // Rediriger vers la page des dons
+        router.push('/merchant-donations');
+      } else {
+        // Rafraîchir la liste des événements pour mettre à jour les statuts
+        fetchEvents();
+      }
+      
+      return response;
     } catch (error) {
       console.error('Erreur lors de l\'enregistrement du don:', error);
-      toast.error('Impossible d\'enregistrer votre don');
+      
+      // Afficher un message d'erreur plus précis
+      if (error.message) {
+        toast.error(`Erreur: ${error.message}`);
+      } else {
+        toast.error('Impossible d\'enregistrer votre don');
+      }
+      
+      return null;
     } finally {
+      setEventsLoading(false);
       // Toujours fermer le modal, même en cas d'erreur
       setIsDonationModalOpen(false);
       // Réinitialiser l'événement sélectionné immédiatement
@@ -609,10 +649,18 @@ const MerchantDashboard = () => {
                       </td>
                       <td className="px-6 py-5 text-center">
                         <button 
-                          className="px-3 py-2 bg-primary-600 text-white text-base font-medium rounded-md hover:bg-primary-700 transition-colors whitespace-nowrap"
+                          className="px-3 py-2 bg-primary-600 text-white text-base font-medium rounded-md hover:bg-primary-700 transition-colors whitespace-nowrap flex items-center justify-center min-w-[120px]"
                           onClick={() => handleDonateClick(event)}
+                          disabled={eventsLoading}
                         >
-                          Faire un don
+                          {eventsLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                              Chargement...
+                            </>
+                          ) : (
+                            'Faire un don'
+                          )}
                         </button>
                       </td>
                     </tr>
@@ -629,63 +677,26 @@ const MerchantDashboard = () => {
           </div>
         </div>
 
-        {/* Cartes d'accès rapide */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 w-full">
-          {/* Carte pour les produits */}
+        {/* Carte d'accès rapide */}
+        <div className="w-full">
+          {/* Carte pour les dons */}
           <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 hover:shadow-xl transition-shadow border border-gray-100">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-primary-600">Mes Produits</h2>
+              <h2 className="text-2xl font-semibold text-primary-600">Mes Dons</h2>
               <div className="p-3 bg-primary-50 rounded-full">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a4 4 0 112.76 3.77c.08-.65.14-1.3.14-1.77V6a4 4 0 00-8 0v7H4.5m8 5l-5-5m0 0l5-5m-5 5h10" />
                 </svg>
               </div>
             </div>
-            <p className="text-lg text-gray-600 mb-6">Gérez les produits que vous proposez pour le glanage et suivez leur disponibilité.</p>
-            <button 
-              className="w-full py-3 px-6 bg-primary-100 text-primary-700 text-lg font-medium rounded-lg hover:bg-primary-200 transition-colors shadow-sm"
-              onClick={() => alert('Fonctionnalité à venir')}
-            >
-              Voir mes produits
-            </button>
-          </div>
-
-          {/* Carte pour les collectes */}
-          <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 hover:shadow-xl transition-shadow border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-primary-600">Historique</h2>
-              <div className="p-3 bg-primary-50 rounded-full">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-lg text-gray-600 mb-6">Consultez l'historique des collectes effectuées dans votre commerce et leurs résultats.</p>
-            <button 
-              className="w-full py-3 px-6 bg-primary-100 text-primary-700 text-lg font-medium rounded-lg hover:bg-primary-200 transition-colors shadow-sm"
-              onClick={() => alert('Fonctionnalité à venir')}
-            >
-              Voir l'historique
-            </button>
-          </div>
-
-          {/* Carte pour les statistiques */}
-          <div className="bg-white rounded-lg shadow-md p-6 sm:p-8 hover:shadow-xl transition-shadow border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-primary-600">Statistiques</h2>
-              <div className="p-3 bg-primary-50 rounded-full">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-lg text-gray-600 mb-6">Visualisez l'impact de vos dons et contributions à la lutte contre le gaspillage alimentaire.</p>
-            <button 
-              className="w-full py-3 px-6 bg-primary-100 text-primary-700 text-lg font-medium rounded-lg hover:bg-primary-200 transition-colors shadow-sm"
-              onClick={() => alert('Fonctionnalité à venir')}
-            >
-              Voir les statistiques
-            </button>
+            <p className="text-lg text-gray-600 mb-6">Consultez l'historique de vos dons et suivez leur impact dans la lutte contre le gaspillage alimentaire.</p>
+            <Link href="/merchant-donations">
+              <button 
+                className="w-full py-3 px-6 bg-primary-100 text-primary-700 text-lg font-medium rounded-lg hover:bg-primary-200 transition-colors shadow-sm"
+              >
+                Voir mes dons
+              </button>
+            </Link>
           </div>
         </div>
       </div>
