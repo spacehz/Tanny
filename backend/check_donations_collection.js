@@ -1,98 +1,96 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
+const Donation = require('./src/models/Donation');
+const Merchant = require('./src/models/Merchant');
+const Event = require('./src/models/Event');
 
-// Charger les variables d'environnement
-dotenv.config();
-
-// Fonction pour vérifier la collection des dons
-async function checkDonationsCollection() {
+// Connexion à MongoDB
+const connectDB = async () => {
   try {
-    // Connexion à la base de données
-    console.log('Connexion à MongoDB...');
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://admin:12345@localhost:27017/TANY?authSource=admin', {
+    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/tany', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log('Connecté à MongoDB');
 
-    // Vérifier si la collection "donations" existe
+    console.log(`MongoDB connecté: ${conn.connection.host}`);
+    return conn;
+  } catch (error) {
+    console.error(`Erreur de connexion à MongoDB: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+// Vérifier la collection donations
+const checkDonationsCollection = async () => {
+  try {
+    // Vérifier si la collection existe
     const collections = await mongoose.connection.db.listCollections().toArray();
-    const collectionNames = collections.map(c => c.name);
+    const donationsCollectionExists = collections.some(collection => collection.name === 'donations');
     
-    console.log('Collections disponibles dans la base de données:');
-    console.log(collectionNames);
+    console.log(`Collection donations existe: ${donationsCollectionExists}`);
     
-    if (collectionNames.includes('donations')) {
-      console.log('\nLa collection "donations" existe déjà.');
+    if (donationsCollectionExists) {
+      // Compter le nombre de documents
+      const count = await Donation.countDocuments();
+      console.log(`Nombre de donations dans la collection: ${count}`);
       
-      // Récupérer un échantillon de documents pour vérifier la structure
-      const donationsSample = await mongoose.connection.db.collection('donations').find({}).limit(1).toArray();
-      
-      if (donationsSample.length > 0) {
-        console.log('\nStructure d\'un document de don:');
-        console.log(JSON.stringify(donationsSample[0], null, 2));
-      } else {
-        console.log('\nLa collection "donations" est vide.');
-        
-        // Créer un document de test pour vérifier le schéma
-        console.log('\nCréation d\'un document de test pour vérifier le schéma...');
-        
-        // Importer le modèle Donation
-        const Donation = require('./src/models/Donation');
-        
-        // Créer un document de test
-        const testDonation = new Donation({
-          merchant: new mongoose.Types.ObjectId(), // ID fictif
-          event: new mongoose.Types.ObjectId(),    // ID fictif
-          items: [
-            {
-              product: 'Pain',
-              quantity: 5,
-              unit: 'kg'
-            }
-          ],
-          status: 'pending',
-          note: 'Ceci est un test'
+      // Récupérer quelques documents pour vérifier la structure
+      if (count > 0) {
+        const donations = await Donation.find().limit(5).populate('merchant', 'businessName email').populate('event', 'title');
+        console.log('Exemples de donations:');
+        donations.forEach((donation, index) => {
+          console.log(`\nDonation ${index + 1}:`);
+          console.log(`ID: ${donation._id}`);
+          console.log(`Commerçant: ${donation.merchant ? donation.merchant.businessName : 'Non spécifié'}`);
+          console.log(`Événement: ${donation.event ? donation.event.title : 'Non spécifié'}`);
+          console.log(`Statut: ${donation.status}`);
+          console.log('Articles:');
+          donation.items.forEach(item => {
+            console.log(`- ${item.product}: ${item.quantity} ${item.unit}`);
+          });
+          console.log(`Note: ${donation.note || 'Aucune'}`);
+          console.log(`Créé le: ${donation.createdAt}`);
         });
-        
-        // Afficher la structure du document (sans le sauvegarder)
-        console.log('\nStructure du document selon le schéma:');
-        console.log(JSON.stringify(testDonation, null, 2));
       }
     } else {
-      console.log('\nLa collection "donations" n\'existe pas encore.');
-      console.log('Elle sera créée automatiquement lors de la première insertion.');
-      
-      // Importer le modèle Donation
-      const Donation = require('./src/models/Donation');
-      
-      // Créer un document de test
-      const testDonation = new Donation({
-        merchant: new mongoose.Types.ObjectId(), // ID fictif
-        event: new mongoose.Types.ObjectId(),    // ID fictif
-        items: [
-          {
-            product: 'Pain',
-            quantity: 5,
-            unit: 'kg'
-          }
-        ],
-        status: 'pending',
-        note: 'Ceci est un test'
-      });
-      
-      // Afficher la structure du document (sans le sauvegarder)
-      console.log('\nStructure du document selon le schéma:');
-      console.log(JSON.stringify(testDonation, null, 2));
+      console.log('La collection donations n\'existe pas encore. Elle sera créée automatiquement lors de la première insertion.');
     }
+    
+    // Vérifier les collections associées
+    console.log('\nVérification des collections associées:');
+    
+    // Vérifier les commerçants
+    const merchantCount = await Merchant.countDocuments();
+    console.log(`Nombre de commerçants: ${merchantCount}`);
+    
+    // Vérifier les événements
+    const eventCount = await Event.countDocuments();
+    console.log(`Nombre d'événements: ${eventCount}`);
+    
+    // Vérifier les index
+    console.log('\nIndex de la collection donations:');
+    const indexes = await Donation.collection.indexes();
+    console.log(indexes);
+    
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error(`Erreur lors de la vérification de la collection donations: ${error.message}`);
+  }
+};
+
+// Fonction principale
+const main = async () => {
+  const conn = await connectDB();
+  
+  try {
+    await checkDonationsCollection();
+  } catch (error) {
+    console.error(`Erreur: ${error.message}`);
   } finally {
     // Fermer la connexion
-    await mongoose.disconnect();
-    console.log('\nDéconnecté de MongoDB');
+    await mongoose.connection.close();
+    console.log('Connexion à MongoDB fermée');
   }
-}
+};
 
-// Exécuter la fonction
-checkDonationsCollection();
+// Exécuter la fonction principale
+main();

@@ -48,17 +48,31 @@ const DonationModal = ({ isOpen, onClose, event, onSubmit }) => {
         return;
       }
       
+      // Vérifier que l'événement a un ID
+      if (!event || !event._id) {
+        alert('Erreur: Informations de l\'événement manquantes');
+        console.error('Événement invalide:', event);
+        return;
+      }
+      
       // Préparer les données à soumettre
       const donationData = {
-        eventId: event?._id,
-        donations: validDonations,
-        note
+        eventId: event._id,
+        donations: validDonations.map(item => ({
+          product: item.product.trim(),
+          quantity: parseFloat(item.quantity) || 1,
+          unit: item.unit || 'kg'
+        })),
+        note: note.trim()
       };
+      
+      console.log('Données de donation préparées:', donationData);
       
       // Appeler la fonction de soumission
       onSubmit(donationData);
     } catch (error) {
       console.error('Erreur lors de la soumission du formulaire de don:', error);
+      alert(`Erreur lors de la soumission du don: ${error.message || 'Erreur inconnue'}`);
       // Fermer le modal même en cas d'erreur
       onClose();
     }

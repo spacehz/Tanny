@@ -16,8 +16,10 @@ const MerchantDonations = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(10);
   
-  // Utiliser une référence pour suivre la page actuelle sans créer de dépendance cyclique
+  // Utiliser des références pour suivre l'état sans créer de dépendances cycliques
   const currentPageRef = useRef(currentPage);
+  const hasCheckedAccessRef = useRef(false);
+  const hasCheckedReferrerRef = useRef(false);
   
   // Fonction pour vérifier directement si l'utilisateur est un commerçant
   const checkIsMerchant = () => {
@@ -53,16 +55,27 @@ const MerchantDonations = () => {
           } else {
             console.log('L\'utilisateur est un commerçant, accès autorisé');
             setLoading(false);
-            fetchDonations(currentPage);
+            
+            // Ne charger les donations qu'une seule fois au chargement initial
+            if (!hasCheckedAccessRef.current) {
+              hasCheckedAccessRef.current = true;
+              console.log('Chargement initial des donations');
+              fetchDonations(currentPage);
+            }
           }
         }
       };
       
-      checkAccess();
+      if (!hasCheckedAccessRef.current) {
+        checkAccess();
+      }
     }, 500); // Attendre 500ms pour s'assurer que les données sont chargées
     
     return () => clearTimeout(timer);
-  }, [isAuthenticated, isMerchant, loading, router, user]);
+    
+    // Désactiver temporairement certaines dépendances pour éviter les boucles infinies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, router, user]);
   
   // Effet pour rafraîchir les donations lorsque la page change
   useEffect(() => {
@@ -71,20 +84,33 @@ const MerchantDonations = () => {
     
     // Fonction pour charger les données
     const loadData = () => {
-      if (!loading && isAuthenticated && checkIsMerchant()) {
+      // Ne charger les données que si nous avons déjà vérifié l'accès
+      // et si nous ne sommes pas déjà en train de charger des données
+      if (!loading && isAuthenticated && checkIsMerchant() && hasCheckedAccessRef.current && !donationsLoading) {
+        console.log(`Chargement des donations pour la page ${currentPageRef.current}`);
         // Utiliser la fonction fetchDonations sans l'ajouter comme dépendance
         fetchDonations(currentPageRef.current);
       }
     };
     
-    loadData();
-  }, [currentPage, isAuthenticated, loading, checkIsMerchant]);
+    // Utiliser un délai pour éviter les appels trop fréquents
+    const timer = setTimeout(() => {
+      loadData();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+    
+    // Désactiver temporairement le rechargement automatique pour éviter les boucles infinies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
   
   // Effet pour vérifier si nous venons de la page merchant après avoir fait un don
   useEffect(() => {
     // Vérifier si nous venons de la page merchant (via le referrer)
     const checkReferrer = () => {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !hasCheckedReferrerRef.current) {
+        hasCheckedReferrerRef.current = true; // Marquer comme vérifié
+        
         const referrer = document.referrer;
         const fromMerchant = referrer.includes('/merchant') && !referrer.includes('/merchant-donations');
         
@@ -99,8 +125,13 @@ const MerchantDonations = () => {
       }
     };
     
-    checkReferrer();
-  }, [isAuthenticated, loading]);
+    if (!loading && isAuthenticated) {
+      checkReferrer();
+    }
+    
+    // Désactiver temporairement les dépendances pour éviter les boucles infinies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Récupérer les donations du commerçant
   const fetchDonations = useCallback(async (page, showLoadingIndicator = true) => {
@@ -108,6 +139,16 @@ const MerchantDonations = () => {
       if (showLoadingIndicator) {
         setDonationsLoading(true);
       }
+      
+      // Vérifier si l'utilisateur est authentifié
+      if (!isAuthenticated || !user || !user._id) {
+        console.log('Utilisateur non authentifié ou sans ID valide');
+        setDonations([]);
+        setTotalPages(1);
+        return null;
+      }
+      
+      console.log(`Récupération des donations pour la page ${page}, utilisateur ID: ${user._id}`);
       
       const options = {
         page,
@@ -117,15 +158,28 @@ const MerchantDonations = () => {
       const response = await getMerchantDonations(options);
       console.log('Donations récupérées:', response);
       
+      // Vérifier si la réponse contient une erreur
+      if (response && response.error) {
+        console.error('Erreur dans la réponse:', response.error);
+        toast.error(`Erreur lors du chargement des donations: ${response.error}`);
+        setDonations([]);
+        setTotalPages(1);
+        return null;
+      }
+      
       if (response && response.donations) {
         setDonations(response.donations);
-        setTotalPages(response.totalPages || 1);
+        setTotalPages(response.pages || 1);
         
         // Si aucune donation n'est trouvée mais que nous ne sommes pas sur la première page,
-        // revenir à la première page
+        // revenir à la première page SANS rappeler fetchDonations pour éviter les boucles
         if (response.donations.length === 0 && page > 1) {
-          setCurrentPage(1);
-          fetchDonations(1, false);
+          console.log('Aucune donation trouvée sur la page', page, 'retour à la page 1');
+          // Utiliser setTimeout pour éviter les problèmes de mise à jour d'état pendant le rendu
+          setTimeout(() => {
+            setCurrentPage(1);
+          }, 0);
+          // Ne pas rappeler fetchDonations ici pour éviter les boucles infinies
         }
       } else {
         setDonations([]);

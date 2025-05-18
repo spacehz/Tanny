@@ -322,11 +322,23 @@ const MerchantDashboard = () => {
     try {
       setEventsLoading(true); // Indiquer que le traitement est en cours
       
+      console.log('Données de donation reçues du modal:', donationData);
+      
+      // Vérifier que les données sont complètes
+      if (!donationData.eventId) {
+        throw new Error('ID de l\'événement manquant');
+      }
+      
+      if (!donationData.donations || !Array.isArray(donationData.donations) || donationData.donations.length === 0) {
+        throw new Error('Aucun produit à donner spécifié');
+      }
+      
       // Envoyer la donation au backend
       const response = await createDonation(donationData);
+      console.log('Réponse du serveur après création du don:', response);
       
       // Afficher un message de succès
-      toast.success('Votre don a été enregistré avec succès');
+      toast.success('Votre don a été enregistré avec succès dans la base de données');
       
       // Proposer de voir les dons
       const viewDonations = window.confirm('Votre don a été enregistré avec succès. Voulez-vous consulter la liste de vos dons?');
@@ -344,7 +356,27 @@ const MerchantDashboard = () => {
       console.error('Erreur lors de l\'enregistrement du don:', error);
       
       // Afficher un message d'erreur plus précis
-      if (error.message) {
+      if (error.response) {
+        // Erreur de réponse du serveur
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Erreur serveur';
+        
+        if (status === 401) {
+          toast.error('Session expirée. Veuillez vous reconnecter.');
+          // Rediriger vers la page de connexion après un court délai
+          setTimeout(() => {
+            router.push('/login?session=expired');
+          }, 2000);
+        } else if (status === 403) {
+          toast.error(`Accès refusé: ${message}. Vous n'avez pas les droits nécessaires.`);
+        } else if (status === 404) {
+          toast.error(`Événement non trouvé: ${message}`);
+        } else if (status === 400) {
+          toast.error(`Données invalides: ${message}`);
+        } else {
+          toast.error(`Erreur serveur (${status}): ${message}`);
+        }
+      } else if (error.message) {
         toast.error(`Erreur: ${error.message}`);
       } else {
         toast.error('Impossible d\'enregistrer votre don');

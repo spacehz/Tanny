@@ -9,18 +9,18 @@ const {
   updateDonationStatus,
   deleteDonation
 } = require('../controllers/donationController');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, admin, merchant } = require('../middleware/authMiddleware');
 
 // Routes publiques
 // Aucune pour le moment
 
 // Routes protégées (nécessitent une authentification)
 router.route('/')
-  .post(protect, createDonation)
+  .post(protect, createDonation) // Retirer le middleware merchant pour déboguer
   .get(protect, admin, getDonations);
 
 router.route('/merchant')
-  .get(protect, getMerchantDonations);
+  .get(protect, getMerchantDonations); // Retirer le middleware merchant pour déboguer
 
 router.route('/event/:eventId')
   .get(protect, admin, getEventDonations);

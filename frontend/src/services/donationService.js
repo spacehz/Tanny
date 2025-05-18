@@ -10,50 +10,111 @@ import api from './api';
 export const getMerchantDonations = async (options = {}) => {
   try {
     const { page = 1, limit = 10 } = options;
-    const response = await api.get(`/api/donations/merchant?page=${page}&limit=${limit}`);
+    console.log(`Appel API pour récupérer les donations: page=${page}, limit=${limit}`);
     
-    // Si la réponse est vide ou n'a pas le format attendu, retourner un objet par défaut
-    if (!response.data) {
+    // Vérifier si l'utilisateur est authentifié
+    const userInfo = localStorage.getItem('userInfo');
+    if (!userInfo) {
+      console.error('Utilisateur non authentifié');
       return {
         donations: [],
-        totalPages: 1,
-        currentPage: 1,
-        totalItems: 0
+        pages: 1,
+        page: 1,
+        total: 0
       };
     }
     
-    // Vérifier le format de la réponse et adapter si nécessaire
-    if (Array.isArray(response.data)) {
-      // Si la réponse est directement un tableau de donations
-      return {
-        donations: response.data,
-        totalPages: 1,
-        currentPage: 1,
-        totalItems: response.data.length
-      };
-    } else if (response.data.donations) {
-      // Format standard avec pagination
-      return response.data;
-    } else if (response.data.data && Array.isArray(response.data.data)) {
-      // Format alternatif
-      return {
-        donations: response.data.data,
-        totalPages: response.data.totalPages || Math.ceil(response.data.data.length / limit) || 1,
-        currentPage: response.data.currentPage || page,
-        totalItems: response.data.totalItems || response.data.data.length
-      };
-    }
+    // Ajouter un timeout pour éviter les attentes infinies
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 secondes
     
-    // Si aucun format reconnu, retourner un objet par défaut
-    return {
-      donations: [],
-      totalPages: 1,
-      currentPage: 1,
-      totalItems: 0
-    };
+    try {
+      const response = await api.get(`/api/donations/merchant?page=${page}&limit=${limit}`, {
+        signal: controller.signal
+      });
+      
+      // Annuler le timeout
+      clearTimeout(timeoutId);
+      
+      console.log('Réponse brute de l\'API:', response);
+      
+      // Si la réponse est vide ou n'a pas le format attendu, retourner un objet par défaut
+      if (!response.data) {
+        console.log('Réponse vide, retour d\'un objet par défaut');
+        return {
+          donations: [],
+          pages: 1,
+          page: 1,
+          total: 0
+        };
+      }
+      
+      // Vérifier le format de la réponse et adapter si nécessaire
+      if (Array.isArray(response.data)) {
+        // Si la réponse est directement un tableau de donations
+        console.log('Réponse sous forme de tableau');
+        return {
+          donations: response.data,
+          pages: 1,
+          page: 1,
+          total: response.data.length
+        };
+      } else if (response.data.donations) {
+        // Format standard avec pagination
+        console.log('Réponse au format standard avec pagination');
+        return {
+          donations: response.data.donations,
+          pages: response.data.pages || Math.ceil(response.data.total / limit) || 1,
+          page: response.data.page || page,
+          total: response.data.total || response.data.donations.length
+        };
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        // Format alternatif
+        console.log('Réponse au format alternatif');
+        return {
+          donations: response.data.data,
+          pages: response.data.totalPages || Math.ceil(response.data.data.length / limit) || 1,
+          page: response.data.currentPage || page,
+          total: response.data.totalItems || response.data.data.length
+        };
+      }
+      
+      // Si aucun format reconnu, retourner un objet par défaut
+      console.log('Format de réponse non reconnu, retour d\'un objet par défaut');
+      return {
+        donations: [],
+        pages: 1,
+        page: 1,
+        total: 0
+      };
+    } catch (abortError) {
+      // Annuler le timeout
+      clearTimeout(timeoutId);
+      
+      if (abortError.name === 'AbortError') {
+        console.error('La requête a été abandonnée après 10 secondes');
+        return {
+          donations: [],
+          pages: 1,
+          page: 1,
+          total: 0,
+          error: 'Timeout'
+        };
+      }
+      
+      throw abortError;
+    }
   } catch (error) {
     console.error('Erreur lors de la récupération des donations:', error);
-    throw error;
+    
+    // Retourner un objet avec une erreur au lieu de lancer une exception
+    return {
+      donations: [],
+      pages: 1,
+      page: 1,
+      total: 0,
+      error: error.message || 'Erreur inconnue'
+    };
   }
 };
 
@@ -89,13 +150,14 @@ export const createDonation = async (donationData) => {
       throw new Error('Aucun produit à donner spécifié');
     }
     
-    // Transformation des données pour correspondre au format attendu par l'API
+    // Transformation des données pour correspondre exactement au format attendu par l'API
+    // Le contrôleur backend attend eventId et items
     const apiDonationData = {
       eventId: donationData.eventId,
       items: donationData.donations.map(item => ({
-        product: item.product,
-        quantity: item.quantity,
-        unit: item.unit
+        product: item.product.trim(),
+        quantity: parseFloat(item.quantity) || 1,
+        unit: item.unit || 'kg'
       })),
       note: donationData.note || ''
     };
