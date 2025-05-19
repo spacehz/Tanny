@@ -10,6 +10,7 @@ import {
 } from '../services/assignmentService';
 import api from '../services/api';
 import CollectionEntryModal from '../components/CollectionEntryModal';
+import VolunteerStatsCharts from '../components/VolunteerStatsCharts';
 
 export default function VolunteerParticipationsPage() {
   const { user } = useAuth();
@@ -20,10 +21,22 @@ export default function VolunteerParticipationsPage() {
     isLoading: assignmentsLoading, 
     mutate: mutateAssignments 
   } = useVolunteerAssignments(user?._id);
+  
   const [upcomingAssignments, setUpcomingAssignments] = useState([]);
   const [pastAssignments, setPastAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  
+  // État pour les statistiques calculées localement
+  const [stats, setStats] = useState({
+    totalParticipationDays: 0,
+    totalHours: 0,
+    totalMinutes: 0,
+    totalDuration: 0,
+    totalCompletedAssignments: 0,
+    totalProducts: 0,
+    productCategories: {}
+  });
   
   // Logs détaillés pour déboguer
   console.log('User ID:', user?._id);
@@ -74,6 +87,10 @@ export default function VolunteerParticipationsPage() {
         setUpcomingAssignments(processedAssignments);
         setPastAssignments([]);
         
+        // Calculer les statistiques
+        const calculatedStats = calculateStats(processedAssignments);
+        setStats(calculatedStats);
+        
         return true; // Données traitées avec succès
       }
       // Essayer avec les données formatées si disponibles
@@ -107,6 +124,10 @@ export default function VolunteerParticipationsPage() {
         // Comme nous n'avons pas de date, nous allons considérer tous les assignments comme "à venir"
         setUpcomingAssignments(processedAssignments);
         setPastAssignments([]);
+        
+        // Calculer les statistiques
+        const calculatedStats = calculateStats(processedAssignments);
+        setStats(calculatedStats);
         
         return true; // Données traitées avec succès
       }
@@ -237,6 +258,159 @@ export default function VolunteerParticipationsPage() {
     } catch (error) {
       console.error('Erreur lors du rafraîchissement des données:', error);
     }
+  };
+  
+  // Fonction pour calculer les statistiques à partir des affectations
+  const calculateStats = (assignmentsList) => {
+    if (!Array.isArray(assignmentsList) || assignmentsList.length === 0) {
+      return {
+        totalParticipationDays: 0,
+        totalHours: 0,
+        totalMinutes: 0,
+        totalDuration: 0,
+        totalCompletedAssignments: 0,
+        totalProducts: 0,
+        productCategories: {},
+        participationByMonth: {},
+        productsByMonth: {},
+        recentActivity: []
+      };
+    }
+    
+    // Filtrer les affectations complétées avec startTime et endTime
+    const completedAssignments = assignmentsList.filter(a => 
+      a.status === 'completed' && a.startTime && a.endTime
+    );
+    
+    // Calculer les statistiques
+    let totalMinutes = 0;
+    const participationDays = new Set();
+    let totalProducts = 0;
+    const productCategories = {};
+    const participationByMonth = {};
+    const productsByMonth = {};
+    const recentActivity = [];
+    
+    // Trier les affectations par date (les plus récentes d'abord)
+    const sortedAssignments = [...completedAssignments].sort((a, b) => {
+      return new Date(b.endTime) - new Date(a.endTime);
+    });
+    
+    // Prendre les 5 activités les plus récentes pour l'historique
+    sortedAssignments.slice(0, 5).forEach(assignment => {
+      recentActivity.push({
+        date: assignment.endTime,
+        duration: assignment.duration || 0,
+        products: assignment.collectedItems || assignment.items || [],
+        merchant: assignment.merchant?.businessName || 'Commerçant inconnu'
+      });
+    });
+    
+    completedAssignments.forEach(assignment => {
+      // Ajouter les minutes de cette affectation
+      totalMinutes += assignment.duration || 0;
+      
+      // Ajouter la date (jour) à l'ensemble des jours de participation
+      if (assignment.startTime) {
+        const date = new Date(assignment.startTime);
+        const dateString = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+        participationDays.add(dateString);
+        
+        // Statistiques par mois
+        const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+        if (!participationByMonth[monthKey]) {
+          participationByMonth[monthKey] = {
+            days: new Set(),
+            hours: 0,
+            assignments: 0
+          };
+        }
+        
+        participationByMonth[monthKey].days.add(dateString);
+        participationByMonth[monthKey].hours += (assignment.duration || 0) / 60;
+        participationByMonth[monthKey].assignments += 1;
+      }
+      
+      // Calculer les produits collectés
+      if (assignment.collectedItems && assignment.collectedItems.length > 0) {
+        assignment.collectedItems.forEach(item => {
+          const quantity = item.quantity || 0;
+          totalProducts += quantity;
+          
+          // Regrouper par catégorie (nom du produit)
+          if (!productCategories[item.name]) {
+            productCategories[item.name] = 0;
+          }
+          productCategories[item.name] += quantity;
+          
+          // Statistiques par mois
+          if (assignment.startTime) {
+            const date = new Date(assignment.startTime);
+            const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            
+            if (!productsByMonth[monthKey]) {
+              productsByMonth[monthKey] = {};
+            }
+            
+            if (!productsByMonth[monthKey][item.name]) {
+              productsByMonth[monthKey][item.name] = 0;
+            }
+            
+            productsByMonth[monthKey][item.name] += quantity;
+          }
+        });
+      } else if (assignment.items && assignment.items.length > 0) {
+        // Si pas de collectedItems, utiliser les items prévus
+        assignment.items.forEach(item => {
+          const quantity = item.quantity || 0;
+          totalProducts += quantity;
+          
+          // Regrouper par catégorie (nom du produit)
+          if (!productCategories[item.name]) {
+            productCategories[item.name] = 0;
+          }
+          productCategories[item.name] += quantity;
+          
+          // Statistiques par mois
+          if (assignment.startTime) {
+            const date = new Date(assignment.startTime);
+            const monthKey = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            
+            if (!productsByMonth[monthKey]) {
+              productsByMonth[monthKey] = {};
+            }
+            
+            if (!productsByMonth[monthKey][item.name]) {
+              productsByMonth[monthKey][item.name] = 0;
+            }
+            
+            productsByMonth[monthKey][item.name] += quantity;
+          }
+        });
+      }
+    });
+    
+    // Convertir les minutes en heures
+    const totalHours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+    
+    // Convertir les ensembles en nombres pour participationByMonth
+    Object.keys(participationByMonth).forEach(month => {
+      participationByMonth[month].days = participationByMonth[month].days.size;
+    });
+    
+    return {
+      totalParticipationDays: participationDays.size,
+      totalHours,
+      totalMinutes: remainingMinutes,
+      totalDuration: totalMinutes,
+      totalCompletedAssignments: completedAssignments.length,
+      totalProducts,
+      productCategories,
+      participationByMonth,
+      productsByMonth,
+      recentActivity
+    };
   };
 
   // Fonction pour déterminer la couleur en fonction du type d'événement
@@ -420,6 +594,72 @@ export default function VolunteerParticipationsPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+        
+        {/* Statistiques personnelles */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Mes statistiques</h2>
+            <div className="flex space-x-2">
+              <button 
+                onClick={refreshData}
+                className="px-3 py-1 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 text-sm"
+              >
+                Rafraîchir
+              </button>
+            </div>
+          </div>
+          
+          {assignmentsLoading ? (
+            <p className="text-center py-4">Chargement des statistiques...</p>
+          ) : assignmentsError ? (
+            <p className="text-center py-4 text-red-500">Erreur lors du chargement des statistiques: {assignmentsError.message}</p>
+          ) : (
+            <>
+              {/* Résumé des statistiques clés */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">Participation</h3>
+                  <div className="flex items-center">
+                    <div className="text-3xl font-bold text-primary-600 mr-2">
+                      {stats?.totalParticipationDays || 0}
+                    </div>
+                    <div className="text-gray-600">jours</div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">Nombre de jours de bénévolat</p>
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">Heures de bénévolat</h3>
+                  <div className="flex items-center">
+                    <div className="text-3xl font-bold text-primary-600 mr-2">
+                      {stats?.totalHours || 0}
+                    </div>
+                    <div className="text-gray-600">h</div>
+                    <div className="text-3xl font-bold text-primary-600 mx-2">
+                      {stats?.totalMinutes || 0}
+                    </div>
+                    <div className="text-gray-600">min</div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">Temps total de bénévolat</p>
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">Collectes</h3>
+                  <div className="flex items-center">
+                    <div className="text-3xl font-bold text-primary-600 mr-2">
+                      {stats?.totalCompletedAssignments || 0}
+                    </div>
+                    <div className="text-gray-600">collectes</div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">Nombre de collectes effectuées</p>
+                </div>
+              </div>
+              
+              {/* Graphiques de statistiques */}
+              <VolunteerStatsCharts stats={stats} />
+            </>
           )}
         </div>
         

@@ -274,6 +274,94 @@ exports.getEventDonations = asyncHandler(async (req, res, next) => {
 });
 
 /**
+ * @desc    Récupérer les statistiques d'un bénévole
+ * @route   GET /api/users/volunteers/:id/stats
+ * @access  Private (Volunteer, Admin)
+ */
+exports.getVolunteerStats = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  try {
+    // Vérifier si le bénévole existe
+    const volunteer = await User.findById(id);
+    if (!volunteer) {
+      return next(new ErrorResponse(`Bénévole non trouvé avec l'id ${id}`, 404));
+    }
+
+    // Vérifier que l'utilisateur est soit le bénévole lui-même, soit un admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== id) {
+      return next(new ErrorResponse(`Non autorisé à accéder aux statistiques de ce bénévole`, 403));
+    }
+
+    // Récupérer toutes les affectations complétées du bénévole
+    const completedAssignments = await Assignment.find({ 
+      volunteer: id,
+      status: 'completed',
+      startTime: { $ne: null },
+      endTime: { $ne: null }
+    });
+
+    // Calculer les statistiques
+    let totalHours = 0;
+    let totalMinutes = 0;
+    const participationDays = new Set();
+
+    completedAssignments.forEach(assignment => {
+      // Ajouter les minutes de cette affectation
+      totalMinutes += assignment.duration || 0;
+      
+      // Ajouter la date (jour) à l'ensemble des jours de participation
+      if (assignment.startTime) {
+        const date = new Date(assignment.startTime);
+        const dateString = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+        participationDays.add(dateString);
+      }
+    });
+
+    // Convertir les minutes en heures
+    totalHours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+
+    // Statistiques sur les produits collectés
+    let totalProducts = 0;
+    const productCategories = {};
+
+    completedAssignments.forEach(assignment => {
+      if (assignment.collectedItems && assignment.collectedItems.length > 0) {
+        assignment.collectedItems.forEach(item => {
+          totalProducts += item.quantity || 0;
+          
+          // Regrouper par catégorie (nom du produit)
+          if (!productCategories[item.name]) {
+            productCategories[item.name] = 0;
+          }
+          productCategories[item.name] += item.quantity || 0;
+        });
+      }
+    });
+
+    // Préparer les données de réponse
+    const stats = {
+      totalParticipationDays: participationDays.size,
+      totalHours,
+      totalMinutes: remainingMinutes,
+      totalDuration: totalMinutes, // Durée totale en minutes
+      totalCompletedAssignments: completedAssignments.length,
+      totalProducts,
+      productCategories
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des statistiques du bénévole:', error);
+    return next(new ErrorResponse(`Erreur lors de la récupération des statistiques: ${error.message}`, 500));
+  }
+});
+
+/**
  * @desc    Récupérer les affectations d'un bénévole
  * @route   GET /api/users/volunteers/:id/assignments
  * @access  Private (Volunteer, Admin)

@@ -100,7 +100,11 @@ export default function VolunteerPage() {
             return volunteerId && volunteerId.toString() === user._id.toString();
           });
         
-        console.log(`Événement ${event._id} - Utilisateur inscrit: ${isUserRegistered}`);
+        // Déterminer la couleur spécifique en fonction du type d'événement
+        const eventType = event.type || 'collecte'; // Par défaut, considérer comme une collecte
+        const eventColor = getEventColor(eventType);
+        
+        console.log(`Événement ${event._id} - Type: ${eventType} - Couleur: ${eventColor} - Utilisateur inscrit: ${isUserRegistered}`);
         console.log(`Bénévoles inscrits:`, volunteersArray);
         
         return {
@@ -109,11 +113,12 @@ export default function VolunteerPage() {
           start: event.start,
           end: event.end,
           allDay: event.allDay || false,
-          backgroundColor: getEventColor(event.type),
-          borderColor: getEventColor(event.type),
+          backgroundColor: eventColor,
+          borderColor: eventColor,
           textColor: '#ffffff',
+          display: 'block', // Forcer l'affichage en bloc pour une meilleure visibilité
           extendedProps: {
-            type: event.type,
+            type: eventType,
             description: event.description,
             location: event.location,
             volunteersNeeded: totalVolunteersNeeded,
@@ -141,15 +146,14 @@ export default function VolunteerPage() {
 
   // Fonction pour déterminer la couleur en fonction du type d'événement
   const getEventColor = (type) => {
-    if (!type) return '#10b981'; // Vert par défaut
+    if (!type) return '#10b981'; // Vert par défaut (collecte)
     
-    const lowerType = type.toLowerCase();
+    const lowerType = String(type).toLowerCase();
     if (lowerType.includes('collecte')) return '#10b981'; // Vert
-    if (lowerType.includes('marché')) return '#3b82f6'; // Bleu
-    if (lowerType.includes('réunion')) return '#f59e0b'; // Orange
-    if (lowerType.includes('formation')) return '#ef4444'; // Rouge
+    if (lowerType.includes('marché') || lowerType.includes('marche')) return '#3b82f6'; // Bleu
     
-    return '#10b981'; // Vert par défaut
+    // Par défaut, retourner vert (collecte)
+    return '#10b981';
   };
 
   // Fonction pour gérer le clic sur un événement
@@ -262,9 +266,10 @@ export default function VolunteerPage() {
       </Head>
       
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Calendrier des événements</h1>
+        <h1 className="text-2xl font-bold text-primary-700 mb-6">Calendrier des événements</h1>
         
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Calendrier des activités</h2>
           <div className={calendarStyles.calendarContainer}>
             <FullCalendar
               plugins={[dayGridPlugin, interactionPlugin]}
@@ -289,26 +294,47 @@ export default function VolunteerPage() {
                 meridiem: false,
                 hour12: false
               }}
+              eventDisplay="block"
+              eventBackgroundColor="#10b981"
+              eventBorderColor="#10b981"
               eventContent={(eventInfo) => {
                 const event = eventInfo.event;
                 const isUserRegistered = event.extendedProps.isUserRegistered;
+                const eventColor = getEventColor(event.extendedProps.type);
                 
                 return (
-                  <div className="flex items-center">
+                  <div 
+                    className="flex items-center p-1 rounded" 
+                    style={{ 
+                      backgroundColor: eventColor,
+                      borderColor: eventColor,
+                      color: 'white'
+                    }}
+                  >
                     {isUserRegistered && (
                       <span className="inline-block w-2 h-2 bg-white rounded-full mr-1" title="Vous êtes inscrit"></span>
                     )}
-                    <div>{event.title}</div>
+                    <div className="text-sm font-medium truncate">{event.title}</div>
                   </div>
                 );
               }}
             />
           </div>
+          <div className="mt-4 flex items-center justify-end text-sm">
+            <div className="flex items-center mr-4">
+              <span className="inline-block w-3 h-3 rounded-full bg-primary-600 mr-2"></span>
+              <span className="text-gray-600">Collecte</span>
+            </div>
+            <div className="flex items-center mr-4">
+              <span className="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
+              <span className="text-gray-600">Marché</span>
+            </div>
+          </div>
         </div>
         
         {/* Tableau des événements à venir */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Événements à venir</h2>
+          <h2 className="text-xl font-bold text-primary-700 mb-4">Événements à venir</h2>
           
           {isLoading ? (
             <p className="text-center py-4">Chargement des événements...</p>
@@ -363,8 +389,15 @@ export default function VolunteerPage() {
                       <tr key={event.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: event.backgroundColor }}></div>
-                            <div className="text-sm font-medium text-gray-900">{event.title}</div>
+                            <div className="h-3 w-3 rounded-full mr-2" style={{ backgroundColor: getEventColor(event.extendedProps.type) }}></div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {event.title}
+                              {event.extendedProps.isUserRegistered && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                  Inscrit
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -376,22 +409,22 @@ export default function VolunteerPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-1 w-32">
-                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-3 bg-gray-100 rounded-full overflow-hidden shadow-inner">
                                 <div 
-                                  className="h-full rounded-full" 
+                                  className="h-full rounded-full transition-all duration-500 ease-in-out" 
                                   style={{ 
                                     width: `${(event.extendedProps.registeredVolunteers / event.extendedProps.volunteersNeeded) * 100}%`,
-                                    backgroundColor: isFullyBooked ? '#ef4444' : event.backgroundColor
+                                    backgroundColor: isFullyBooked ? '#ef4444' : getEventColor(event.extendedProps.type)
                                   }}
                                 ></div>
                               </div>
                             </div>
-                            <div className="ml-2 text-sm font-medium">
+                            <div className="ml-3 text-sm font-medium">
                               {isFullyBooked ? (
-                                <span className="text-red-500">Complet</span>
+                                <span className="text-red-500 bg-red-50 px-2 py-1 rounded-md">Complet</span>
                               ) : (
                                 <span>
-                                  <span className="text-green-600">{availableSpots}</span> / {event.extendedProps.volunteersNeeded}
+                                  <span className="text-primary-600 font-semibold">{availableSpots}</span> / {event.extendedProps.volunteersNeeded}
                                 </span>
                               )}
                             </div>
@@ -401,7 +434,7 @@ export default function VolunteerPage() {
                           {isUserRegistered ? (
                             <button
                               onClick={() => handleUnregisterFromEvent(event.id)}
-                              className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-full transition-colors"
+                              className="text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-md text-sm font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                             >
                               Se désinscrire
                             </button>
@@ -412,8 +445,8 @@ export default function VolunteerPage() {
                               className={`${
                                 isFullyBooked 
                                   ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                                  : 'text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100'
-                              } px-3 py-1 rounded-full transition-colors`}
+                                  : 'text-white bg-primary-600 hover:bg-primary-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2'
+                              } px-3 py-1.5 rounded-md text-sm font-medium transition-colors`}
                             >
                               {isFullyBooked ? 'Complet' : 'S\'inscrire'}
                             </button>
@@ -428,9 +461,15 @@ export default function VolunteerPage() {
           )}
         </div>
 
-        <div className="mt-4 text-right">
-          <Link href="/volunteer-participations" className="text-primary-600 hover:text-primary-800 font-medium">
-            Voir toutes mes participations →
+        <div className="mt-6 text-right">
+          <Link 
+            href="/volunteer-participations" 
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+          >
+            Voir toutes mes participations
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
           </Link>
         </div>
       </div>

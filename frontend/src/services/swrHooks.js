@@ -184,6 +184,56 @@ export const useVolunteers = (page = 1, limit = 10, search = '', availability = 
  * @returns {Object} SWR response with counts for volunteers, merchants, collections, and upcoming markets
  */
 /**
+ * Hook to fetch statistics for a volunteer
+ * @param {string} volunteerId - Volunteer ID
+ * @returns {Object} SWR response with stats, error, isLoading, and mutate
+ */
+export const useVolunteerStats = (volunteerId) => {
+  console.log('useVolunteerStats appelé avec ID:', volunteerId);
+  
+  const { data, error, isLoading, mutate } = useSWR(
+    volunteerId ? `/api/users/volunteers/${volunteerId}/stats` : null,
+    async (url) => {
+      try {
+        console.log('Fetching volunteer stats from URL:', url);
+        const response = await api.get(url);
+        
+        console.log('Données de statistiques reçues:', response.data);
+        
+        return response.data;
+      } catch (err) {
+        console.error('Erreur dans le fetcher de statistiques:', err);
+        throw err;
+      }
+    },
+    {
+      revalidateOnFocus: true,
+      dedupingInterval: 60000, // Intervalle de dédoublonnage de 1 minute
+      errorRetryCount: 3,
+      shouldRetryOnError: true,
+      revalidateOnReconnect: true
+    }
+  );
+  
+  // Vérifier si les données sont dans le format attendu
+  let stats = {};
+  if (data && data.success && data.data) {
+    stats = data.data;
+    console.log('Statistiques formatées:', stats);
+  } else {
+    console.log('Format de données incorrect ou données manquantes pour les statistiques');
+  }
+  
+  return {
+    stats,
+    rawData: data,
+    error,
+    isLoading,
+    mutate
+  };
+};
+
+/**
  * Hook to fetch assignments for a volunteer
  * @param {string} volunteerId - Volunteer ID
  * @returns {Object} SWR response with data, error, isLoading, and mutate

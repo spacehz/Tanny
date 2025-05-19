@@ -12,15 +12,14 @@ const EventDetailsModal = ({ isOpen, onClose, event }) => {
 
   // Fonction pour déterminer la couleur en fonction du type d'événement
   const getEventColor = (type) => {
-    if (!type) return '#10b981'; // Vert par défaut
+    if (!type) return '#10b981'; // Vert par défaut (collecte)
     
-    const lowerType = type.toLowerCase();
+    const lowerType = String(type).toLowerCase();
     if (lowerType.includes('collecte')) return '#10b981'; // Vert
-    if (lowerType.includes('marché')) return '#3b82f6'; // Bleu
-    if (lowerType.includes('réunion')) return '#f59e0b'; // Orange
-    if (lowerType.includes('formation')) return '#ef4444'; // Rouge
+    if (lowerType.includes('marché') || lowerType.includes('marche')) return '#3b82f6'; // Bleu
     
-    return '#10b981'; // Vert par défaut
+    // Par défaut, retourner vert (collecte)
+    return '#10b981';
   };
 
   // Déterminer la couleur de l'événement

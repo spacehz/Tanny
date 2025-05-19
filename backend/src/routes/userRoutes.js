@@ -59,6 +59,9 @@ router.route('/volunteers/:id')
 // Route pour récupérer les affectations d'un bénévole
 router.get('/volunteers/:id/assignments', protect, assignmentController.getVolunteerAssignments);
 
+// Route pour récupérer les statistiques d'un bénévole
+router.get('/volunteers/:id/stats', protect, assignmentController.getVolunteerStats);
+
 // Routes admin pour les commerçants
 router.route('/merchants')
   .get(protect, admin, userController.getMerchants)
