@@ -345,8 +345,12 @@ exports.getVolunteerAssignments = asyncHandler(async (req, res, next) => {
             volunteer: id,
             merchant: sampleAssignment.merchant._id,
             items: [
-              { name: 'Pain test', quantity: 5, unit: 'kg' },
-              { name: 'Fruits test', quantity: 3, unit: 'kg' }
+              {
+                id: `item-test-${Date.now()}`,
+                name: 'Produit de test',
+                quantity: 5,
+                unit: 'kg'
+              }
             ],
             status: 'pending'
           });
@@ -410,7 +414,7 @@ exports.updateAssignmentStatus = asyncHandler(async (req, res, next) => {
     }
 
     // Vérifier que le statut est valide
-    if (!status || !['pending', 'completed'].includes(status)) {
+    if (!status || !['pending', 'in_progress', 'completed'].includes(status)) {
       return next(new ErrorResponse(`Statut invalide: ${status}`, 400));
     }
 
@@ -425,5 +429,202 @@ exports.updateAssignmentStatus = asyncHandler(async (req, res, next) => {
   } catch (error) {
     console.error('Erreur lors de la mise à jour du statut de l\'affectation:', error);
     return next(new ErrorResponse(`Erreur lors de la mise à jour du statut: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Démarrer une activité de collecte
+ * @route   PATCH /api/assignments/:id/start
+ * @access  Private (Volunteer, Admin)
+ */
+exports.startAssignment = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  try {
+    // Vérifier si l'affectation existe
+    const assignment = await Assignment.findById(id);
+    if (!assignment) {
+      return next(new ErrorResponse(`Affectation non trouvée avec l'id ${id}`, 404));
+    }
+
+    // Vérifier que l'utilisateur est soit le bénévole associé à l'affectation, soit un admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== assignment.volunteer.toString()) {
+      return next(new ErrorResponse(`Non autorisé à modifier cette affectation`, 403));
+    }
+
+    // Vérifier que l'affectation n'est pas déjà terminée
+    if (assignment.status === 'completed') {
+      return next(new ErrorResponse(`Cette affectation est déjà terminée`, 400));
+    }
+
+    // Enregistrer l'heure de début
+    assignment.startTime = new Date();
+    assignment.status = 'in_progress';
+    
+    // Initialiser collectedItems avec les items prévus
+    if (!assignment.collectedItems || assignment.collectedItems.length === 0) {
+      assignment.collectedItems = assignment.items.map(item => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        validated: false
+      }));
+    }
+    
+    await assignment.save();
+
+    return res.status(200).json({
+      success: true,
+      data: assignment
+    });
+  } catch (error) {
+    console.error('Erreur lors du démarrage de l\'affectation:', error);
+    return next(new ErrorResponse(`Erreur lors du démarrage de l'affectation: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Terminer une activité de collecte
+ * @route   PATCH /api/assignments/:id/end
+ * @access  Private (Volunteer, Admin)
+ */
+exports.endAssignment = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  try {
+    // Vérifier si l'affectation existe
+    const assignment = await Assignment.findById(id);
+    if (!assignment) {
+      return next(new ErrorResponse(`Affectation non trouvée avec l'id ${id}`, 404));
+    }
+
+    // Vérifier que l'utilisateur est soit le bénévole associé à l'affectation, soit un admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== assignment.volunteer.toString()) {
+      return next(new ErrorResponse(`Non autorisé à modifier cette affectation`, 403));
+    }
+
+    // Vérifier que l'affectation a été démarrée
+    if (!assignment.startTime) {
+      return next(new ErrorResponse(`Cette affectation n'a pas encore été démarrée`, 400));
+    }
+
+    // Vérifier que l'affectation n'est pas déjà terminée
+    if (assignment.status === 'completed') {
+      return next(new ErrorResponse(`Cette affectation est déjà terminée`, 400));
+    }
+
+    // Enregistrer l'heure de fin
+    assignment.endTime = new Date();
+    
+    // Calculer la durée en minutes
+    const startTime = new Date(assignment.startTime);
+    const endTime = new Date(assignment.endTime);
+    const durationMs = endTime - startTime;
+    assignment.duration = Math.round(durationMs / (1000 * 60)); // Conversion en minutes
+    
+    // Mettre à jour le statut
+    assignment.status = 'completed';
+    
+    await assignment.save();
+
+    // Mettre à jour les heures de bénévolat de l'utilisateur
+    const volunteer = await User.findById(assignment.volunteer);
+    if (volunteer) {
+      volunteer.volunteerHours += assignment.duration / 60; // Convertir en heures
+      await volunteer.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: assignment
+    });
+  } catch (error) {
+    console.error('Erreur lors de la fin de l\'affectation:', error);
+    return next(new ErrorResponse(`Erreur lors de la fin de l'affectation: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Mettre à jour les produits collectés
+ * @route   PATCH /api/assignments/:id/items
+ * @access  Private (Volunteer, Admin)
+ */
+exports.updateCollectedItems = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { collectedItems } = req.body;
+
+  try {
+    // Vérifier si l'affectation existe
+    const assignment = await Assignment.findById(id);
+    if (!assignment) {
+      return next(new ErrorResponse(`Affectation non trouvée avec l'id ${id}`, 404));
+    }
+
+    // Vérifier que l'utilisateur est soit le bénévole associé à l'affectation, soit un admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== assignment.volunteer.toString()) {
+      return next(new ErrorResponse(`Non autorisé à modifier cette affectation`, 403));
+    }
+
+    // Vérifier que les données sont valides
+    if (!Array.isArray(collectedItems)) {
+      return next(new ErrorResponse(`Format de données invalide pour les produits collectés`, 400));
+    }
+
+    // Mettre à jour les produits collectés
+    assignment.collectedItems = collectedItems;
+    await assignment.save();
+
+    return res.status(200).json({
+      success: true,
+      data: assignment
+    });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des produits collectés:', error);
+    return next(new ErrorResponse(`Erreur lors de la mise à jour des produits collectés: ${error.message}`, 500));
+  }
+});
+
+/**
+ * @desc    Ajouter des images à une affectation
+ * @route   POST /api/assignments/:id/images
+ * @access  Private (Volunteer, Admin)
+ */
+exports.addAssignmentImages = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { images } = req.body;
+
+  try {
+    // Vérifier si l'affectation existe
+    const assignment = await Assignment.findById(id);
+    if (!assignment) {
+      return next(new ErrorResponse(`Affectation non trouvée avec l'id ${id}`, 404));
+    }
+
+    // Vérifier que l'utilisateur est soit le bénévole associé à l'affectation, soit un admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== assignment.volunteer.toString()) {
+      return next(new ErrorResponse(`Non autorisé à modifier cette affectation`, 403));
+    }
+
+    // Vérifier que les données sont valides
+    if (!Array.isArray(images)) {
+      return next(new ErrorResponse(`Format de données invalide pour les images`, 400));
+    }
+
+    // Ajouter les nouvelles images
+    if (!assignment.images) {
+      assignment.images = [];
+    }
+    
+    assignment.images = [...assignment.images, ...images];
+    await assignment.save();
+
+    return res.status(200).json({
+      success: true,
+      data: assignment
+    });
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout d\'images:', error);
+    return next(new ErrorResponse(`Erreur lors de l'ajout d'images: ${error.message}`, 500));
   }
 });

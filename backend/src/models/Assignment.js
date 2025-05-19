@@ -44,9 +44,64 @@ const assignmentSchema = new mongoose.Schema(
         }
       }
     ],
+    // Nouveaux champs pour le suivi des collectes
+    startTime: {
+      type: Date,
+      default: null
+    },
+    endTime: {
+      type: Date,
+      default: null
+    },
+    duration: {
+      type: Number, // Durée en minutes
+      default: 0
+    },
+    collectedItems: [
+      {
+        id: {
+          type: String,
+          required: false
+        },
+        name: {
+          type: String,
+          required: true
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 0
+        },
+        unit: {
+          type: String,
+          enum: ['kg', 'g', 'l', 'unité', 'ml', 'pièce'],
+          default: 'kg'
+        },
+        validated: {
+          type: Boolean,
+          default: false
+        }
+      }
+    ],
+    images: [
+      {
+        url: {
+          type: String,
+          required: true
+        },
+        description: {
+          type: String,
+          default: ''
+        },
+        uploadedAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
     status: {
       type: String,
-      enum: ['pending', 'completed'],
+      enum: ['pending', 'in_progress', 'completed'],
       default: 'pending'
     },
     note: {

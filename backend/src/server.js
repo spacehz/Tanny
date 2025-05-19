@@ -28,38 +28,18 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser()); // Pour analyser les cookies
 
-// Protection CSRF
-const csrfProtection = csrf({ cookie: true });
-
-// Appliquer la protection CSRF à toutes les routes POST/PUT/DELETE sauf login/register/refresh
-app.use((req, res, next) => {
-  // Exclure certaines routes de la protection CSRF
-  if (
-    req.path === '/api/users/login' || 
-    req.path === '/api/users/register' || 
-    req.path === '/api/users/refresh-token' ||
-    req.path === '/api/merchants/auth/login' ||
-    req.path === '/api/merchants/auth/refresh-token'
-  ) {
-    return next();
-  }
-  
-  // Appliquer la protection CSRF aux autres routes
-  if (req.method !== 'GET') {
-    return csrfProtection(req, res, next);
-  }
-  
-  next();
-});
+// Protection CSRF désactivée pour le développement
+console.log('Protection CSRF désactivée pour le développement');
+// Pas de middleware CSRF
 
 // Logger en mode développement
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Route pour obtenir un token CSRF
-app.get('/api/csrf-token', csrfProtection, (req, res) => {
-  res.json({ csrfToken: req.csrfToken() });
+// Route pour obtenir un token CSRF (désactivée)
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: 'csrf-disabled' });
 });
 
 // Routes

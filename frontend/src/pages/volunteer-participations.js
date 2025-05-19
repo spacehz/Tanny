@@ -3,8 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import Head from 'next/head';
 import VolunteerLayout from '../components/layout/VolunteerLayout';
 import { useVolunteerAssignments } from '../services/swrHooks';
-import { updateAssignmentStatus } from '../services/assignmentService';
+import { 
+  updateAssignmentStatus, 
+  startAssignment, 
+  endAssignment 
+} from '../services/assignmentService';
 import api from '../services/api';
+import CollectionEntryModal from '../components/CollectionEntryModal';
 
 export default function VolunteerParticipationsPage() {
   const { user } = useAuth();
@@ -17,6 +22,8 @@ export default function VolunteerParticipationsPage() {
   } = useVolunteerAssignments(user?._id);
   const [upcomingAssignments, setUpcomingAssignments] = useState([]);
   const [pastAssignments, setPastAssignments] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   
   // Logs détaillés pour déboguer
   console.log('User ID:', user?._id);
@@ -130,6 +137,75 @@ export default function VolunteerParticipationsPage() {
     if (!items || items.length === 0) return 'Aucun produit';
     
     return items.map(item => `${item.name} (${item.quantity} ${item.unit})`).join(', ');
+  };
+  
+  // Fonction pour démarrer une affectation
+  const handleStartAssignment = async (id) => {
+    try {
+      console.log('Démarrage de l\'affectation:', id);
+      
+      // Appel API pour démarrer l'affectation
+      const response = await api.patch(`/api/assignments/${id}/start`, {});
+      console.log('Réponse du serveur:', response.data);
+      
+      // Rafraîchir les données
+      await mutateAssignments();
+      
+      alert('Affectation démarrée !');
+    } catch (error) {
+      console.error('Erreur lors du démarrage de l\'affectation:', error);
+      
+      // Afficher les détails de l'erreur
+      if (error.response) {
+        console.error('Réponse d\'erreur:', error.response.data);
+        alert(`Erreur lors du démarrage de l'affectation: ${error.response.data.error || error.message}`);
+      } else {
+        alert('Erreur lors du démarrage de l\'affectation. Veuillez réessayer.');
+      }
+    }
+  };
+  
+  // Fonction pour terminer une affectation
+  const handleEndAssignment = async (id) => {
+    try {
+      console.log('Fin de l\'affectation:', id);
+      
+      // Appel API pour terminer l'affectation
+      const response = await api.patch(`/api/assignments/${id}/end`, {});
+      console.log('Réponse du serveur:', response.data);
+      
+      // Rafraîchir les données
+      await mutateAssignments();
+      
+      alert('Affectation terminée !');
+    } catch (error) {
+      console.error('Erreur lors de la fin de l\'affectation:', error);
+      
+      // Afficher les détails de l'erreur
+      if (error.response) {
+        console.error('Réponse d\'erreur:', error.response.data);
+        alert(`Erreur lors de la fin de l'affectation: ${error.response.data.error || error.message}`);
+      } else {
+        alert('Erreur lors de la fin de l\'affectation. Veuillez réessayer.');
+      }
+    }
+  };
+  
+  // Fonction pour ouvrir le modal de saisie
+  const openEntryModal = (assignment) => {
+    setSelectedAssignment(assignment);
+    setIsEntryModalOpen(true);
+  };
+  
+  // Fonction pour fermer le modal de saisie
+  const closeEntryModal = () => {
+    setIsEntryModalOpen(false);
+    setSelectedAssignment(null);
+  };
+  
+  // Fonction pour mettre à jour les données après la saisie
+  const handleEntryUpdate = async () => {
+    await mutateAssignments();
   };
   
   // Fonction pour marquer une affectation comme terminée
@@ -288,21 +364,56 @@ export default function VolunteerParticipationsPage() {
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           assignment.status === 'completed' 
                             ? 'bg-green-100 text-green-800' 
+                            : assignment.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {assignment.status === 'completed' ? 'Terminé' : 'En attente'}
+                          {assignment.status === 'completed' 
+                            ? 'Terminé' 
+                            : assignment.status === 'in_progress'
+                            ? 'En cours'
+                            : 'En attente'}
                         </span>
+                        {assignment.startTime && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Début: {formatDate(assignment.startTime)}
+                          </div>
+                        )}
+                        {assignment.endTime && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Fin: {formatDate(assignment.endTime)}
+                          </div>
+                        )}
+                        {assignment.duration > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Durée: {Math.floor(assignment.duration / 60)}h{assignment.duration % 60 > 0 ? ` ${assignment.duration % 60}min` : ''}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button className="text-primary-600 hover:text-primary-900 mr-3">
-                          Détails
-                        </button>
                         <button 
-                          className="text-green-600 hover:text-green-900"
-                          onClick={() => markAssignmentAsCompleted(assignment._id)}
+                          className="text-primary-600 hover:text-primary-900 mr-3"
+                          onClick={() => openEntryModal(assignment)}
                         >
-                          Confirmer
+                          Saisie
                         </button>
+                        {assignment.status === 'pending' ? (
+                          <button 
+                            className="text-blue-600 hover:text-blue-900"
+                            onClick={() => handleStartAssignment(assignment._id)}
+                          >
+                            Débuter
+                          </button>
+                        ) : assignment.status === 'in_progress' ? (
+                          <button 
+                            className="text-green-600 hover:text-green-900"
+                            onClick={() => handleEndAssignment(assignment._id)}
+                          >
+                            Terminer
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">Terminé</span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -388,10 +499,31 @@ export default function VolunteerParticipationsPage() {
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           assignment.status === 'completed' 
                             ? 'bg-green-100 text-green-800' 
+                            : assignment.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
-                          {assignment.status === 'completed' ? 'Terminé' : 'En attente'}
+                          {assignment.status === 'completed' 
+                            ? 'Terminé' 
+                            : assignment.status === 'in_progress'
+                            ? 'En cours'
+                            : 'En attente'}
                         </span>
+                        {assignment.startTime && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Début: {formatDate(assignment.startTime)}
+                          </div>
+                        )}
+                        {assignment.endTime && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Fin: {formatDate(assignment.endTime)}
+                          </div>
+                        )}
+                        {assignment.duration > 0 && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Durée: {Math.floor(assignment.duration / 60)}h{assignment.duration % 60 > 0 ? ` ${assignment.duration % 60}min` : ''}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button className="text-primary-600 hover:text-primary-900 mr-3">
@@ -414,6 +546,14 @@ export default function VolunteerParticipationsPage() {
           )}
         </div>
       </div>
+      
+      {/* Modal de saisie des produits collectés */}
+      <CollectionEntryModal
+        assignment={selectedAssignment}
+        isOpen={isEntryModalOpen}
+        onClose={closeEntryModal}
+        onUpdate={handleEntryUpdate}
+      />
     </VolunteerLayout>
   );
 }

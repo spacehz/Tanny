@@ -201,6 +201,21 @@ export const useVolunteerAssignments = (volunteerId) => {
         
         console.log('Données brutes reçues:', response.data);
         
+        // Traiter les données pour s'assurer que les nouveaux champs sont présents
+        if (response.data && response.data.data && Array.isArray(response.data.data)) {
+          response.data.data = response.data.data.map(assignment => {
+            // S'assurer que les champs de suivi de collecte sont présents
+            return {
+              ...assignment,
+              startTime: assignment.startTime || null,
+              endTime: assignment.endTime || null,
+              duration: assignment.duration || 0,
+              collectedItems: assignment.collectedItems || [],
+              images: assignment.images || []
+            };
+          });
+        }
+        
         return response.data;
       } catch (err) {
         console.error('Erreur dans le fetcher personnalisé:', err);
