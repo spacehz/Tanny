@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../Sidebar';
 import Header from './Header';
@@ -15,6 +15,7 @@ const getLocalStorage = () => {
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   
   // Vérification de l'authentification admin
   useEffect(() => {
@@ -31,11 +32,15 @@ export default function AdminLayout({ children }) {
       
       <div className="flex flex-1">
         {/* Sidebar à gauche */}
-        <Sidebar />
+        <Sidebar onCollapse={(collapsed) => setSidebarCollapsed(collapsed)} />
         
-        {/* Contenu principal */}
-        <div className="admin-content flex-grow ml-64 transition-all duration-300 pt-16">
-          <main className="p-6">
+        {/* Contenu principal - ajustement dynamique en fonction de l'état de la sidebar */}
+        <div 
+          className={`admin-content flex-grow transition-all duration-300 pt-16 ${
+            sidebarCollapsed ? 'ml-[60px]' : 'ml-[220px]'
+          }`}
+        >
+          <main className="px-6 py-6 md:px-8 lg:px-10 max-w-7xl mx-auto">
             {children}
           </main>
         </div>
