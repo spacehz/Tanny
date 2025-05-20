@@ -21,6 +21,7 @@ const AdminCollections = () => {
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedEventForAssignment, setSelectedEventForAssignment] = useState(null);
+  const [itemsPerPage, setItemsPerPage] = useState(10); // Valeur par défaut
   // Suppression du mode 'detailedTable' car nous avons maintenant un tableau sous le calendrier
   const [formData, setFormData] = useState({
     title: '',
@@ -34,6 +35,16 @@ const AdminCollections = () => {
     numberOfStands: 1,
     volunteers: []
   });
+  
+  // Charger la préférence utilisateur pour le nombre d'éléments par page
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedItemsPerPage = localStorage.getItem('eventsTableItemsPerPage');
+      if (savedItemsPerPage) {
+        setItemsPerPage(parseInt(savedItemsPerPage));
+      }
+    }
+  }, []);
 
   // Utiliser SWR pour récupérer les événements
   const { data: eventsData, error, isLoading } = useEvents();
@@ -248,8 +259,12 @@ const AdminCollections = () => {
                 </div>
               </div>
             </div>
-            
-            {/* Tableau d'événements sous le calendrier */}
+          </div>
+        )}
+        
+        {/* Tableau d'événements sous le calendrier - Maintenant en dehors du conteneur du calendrier pour utiliser toute la largeur */}
+        {!isLoading && !error && (
+          <div className="bg-white rounded-lg shadow-md p-6 mt-8 hover:shadow-lg transition-shadow w-full">
             <EventsTable 
               events={events} 
               onEdit={(event) => {
@@ -275,7 +290,13 @@ const AdminCollections = () => {
               }}
               onDelete={handleDeleteEvent}
               onShowDetails={handleShowEventDetails}
-              itemsPerPage={5}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={(newItemsPerPage) => {
+                // Mettre à jour l'état local
+                setItemsPerPage(newItemsPerPage);
+                // Sauvegarder cette préférence utilisateur dans localStorage
+                localStorage.setItem('eventsTableItemsPerPage', newItemsPerPage);
+              }}
             />
           </div>
         )}

@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const EventsTable = ({ events, onEdit, onDelete, onShowDetails, itemsPerPage = 5 }) => {
+const EventsTable = ({ 
+  events, 
+  onEdit, 
+  onDelete, 
+  onShowDetails, 
+  itemsPerPage = 5,
+  onItemsPerPageChange // Nouvelle prop pour informer le parent du changement de nombre d'éléments par page
+}) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [filters, setFilters] = useState({
@@ -172,32 +179,32 @@ const EventsTable = ({ events, onEdit, onDelete, onShowDetails, itemsPerPage = 5
       </div>
       
       {/* Tableau */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="w-full">
+        <table className="w-full table-fixed divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Titre
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/8 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date de début
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/8 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date de fin
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Type
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/8 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Lieu
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/6 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Description
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Bénévoles
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="w-1/8 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -218,23 +225,24 @@ const EventsTable = ({ events, onEdit, onDelete, onShowDetails, itemsPerPage = 5
                 
                 return (
                   <tr key={event._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
+                    <td className="px-4 py-4">
+                      <div className="text-sm font-medium text-gray-900 truncate">
                         <button 
                           className="text-blue-600 hover:text-blue-800 hover:underline focus:outline-none"
                           onClick={() => onShowDetails(event)}
+                          title={event.title}
                         >
                           {event.title}
                         </button>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <div className="text-sm text-gray-500">{formatDate(event.start)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <div className="text-sm text-gray-500">{formatDate(event.end)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <span 
                         className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
                         style={{ 
@@ -245,37 +253,43 @@ const EventsTable = ({ events, onEdit, onDelete, onShowDetails, itemsPerPage = 5
                         {eventType}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{event.location || "Non spécifié"}</div>
+                    <td className="px-4 py-4">
+                      <div className="text-sm text-gray-500 truncate" title={event.location || "Non spécifié"}>
+                        {event.location || "Non spécifié"}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{event.description || "Non spécifié"}</div>
+                    <td className="px-4 py-4">
+                      <div className="text-sm text-gray-500 truncate" title={event.description || "Non spécifié"}>
+                        {event.description || "Non spécifié"}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4">
                       <div className="text-sm text-gray-500">
                         {event.volunteers?.length || 0}/{event.expectedVolunteers || 1}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button 
-                        className="text-indigo-600 hover:text-indigo-900 mr-3"
-                        onClick={() => onEdit(event)}
-                      >
-                        Modifier
-                      </button>
-                      <button 
-                        className="text-red-600 hover:text-red-900"
-                        onClick={() => onDelete(event._id)}
-                      >
-                        Supprimer
-                      </button>
+                    <td className="px-4 py-4 text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button 
+                          className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded"
+                          onClick={() => onEdit(event)}
+                        >
+                          Modifier
+                        </button>
+                        <button 
+                          className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded"
+                          onClick={() => onDelete(event._id)}
+                        >
+                          Supprimer
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan="8" className="px-4 py-4 text-center text-sm text-gray-500">
                   Aucun événement trouvé
                 </td>
               </tr>
@@ -284,54 +298,175 @@ const EventsTable = ({ events, onEdit, onDelete, onShowDetails, itemsPerPage = 5
         </table>
       </div>
       
-      {/* Pagination */}
+      {/* Pagination améliorée */}
       {totalPages > 1 && (
-        <div className="flex justify-center mt-6">
-          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+        <div className="flex justify-between items-center mt-6 flex-wrap gap-4">
+          <div className="flex items-center">
+            <label htmlFor="itemsPerPage" className="mr-2 text-sm text-gray-600">Lignes par page:</label>
+            <select 
+              id="itemsPerPage"
+              className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+              value={itemsPerPage}
+              onChange={(e) => {
+                const newItemsPerPage = parseInt(e.target.value);
+                // Nous utilisons une fonction pour simuler le changement de itemsPerPage
+                // puisque c'est une prop et non un état local
+                const newTotalPages = Math.ceil(filteredEvents.length / newItemsPerPage);
+                const newCurrentPage = Math.min(currentPage, newTotalPages);
+                
+                // Informer le parent du changement si nécessaire
+                if (typeof onItemsPerPageChange === 'function') {
+                  onItemsPerPageChange(newItemsPerPage);
+                }
+                
+                // Ajuster la page courante si nécessaire
+                if (newCurrentPage !== currentPage) {
+                  setCurrentPage(newCurrentPage);
+                }
+              }}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm" aria-label="Pagination">
             <button
-              onClick={() => handlePageChange(currentPage - 1)}
+              onClick={() => handlePageChange(1)}
               disabled={currentPage === 1}
               className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
                 currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <span className="sr-only">Précédent</span>
-              &laquo; Précédent
+              <span className="sr-only">Première page</span>
+              &laquo;
             </button>
             
-            {/* Afficher les numéros de page */}
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                  currentPage === page
-                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <span className="sr-only">Précédent</span>
+              &lsaquo;
+            </button>
+            
+            {/* Afficher les numéros de page avec pagination intelligente */}
+            {(() => {
+              const pageNumbers = [];
+              const maxPagesToShow = 5; // Nombre maximum de pages à afficher
+              
+              let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+              let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+              
+              // Ajuster si on est proche de la fin
+              if (endPage - startPage + 1 < maxPagesToShow) {
+                startPage = Math.max(1, endPage - maxPagesToShow + 1);
+              }
+              
+              // Ajouter la première page et ellipsis si nécessaire
+              if (startPage > 1) {
+                pageNumbers.push(
+                  <button
+                    key={1}
+                    onClick={() => handlePageChange(1)}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  >
+                    1
+                  </button>
+                );
+                
+                if (startPage > 2) {
+                  pageNumbers.push(
+                    <span key="ellipsis1" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                      ...
+                    </span>
+                  );
+                }
+              }
+              
+              // Ajouter les pages du milieu
+              for (let i = startPage; i <= endPage; i++) {
+                pageNumbers.push(
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(i)}
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                      currentPage === i
+                        ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                        : 'text-gray-500 hover:bg-gray-50'
+                    }`}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+              
+              // Ajouter ellipsis et dernière page si nécessaire
+              if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                  pageNumbers.push(
+                    <span key="ellipsis2" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                      ...
+                    </span>
+                  );
+                }
+                
+                pageNumbers.push(
+                  <button
+                    key={totalPages}
+                    onClick={() => handlePageChange(totalPages)}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  >
+                    {totalPages}
+                  </button>
+                );
+              }
+              
+              return pageNumbers;
+            })()}
             
             <button
               onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              <span className="sr-only">Suivant</span>
+              &rsaquo;
+            </button>
+            
+            <button
+              onClick={() => handlePageChange(totalPages)}
               disabled={currentPage === totalPages}
               className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
                 currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <span className="sr-only">Suivant</span>
-              Suivant &raquo;
+              <span className="sr-only">Dernière page</span>
+              &raquo;
             </button>
           </nav>
+          
+          {/* Informations sur les résultats */}
+          <div className="text-sm text-gray-500">
+            Affichage de {filteredEvents.length > 0 ? indexOfFirstEvent + 1 : 0} à {Math.min(indexOfLastEvent, filteredEvents.length)} sur {filteredEvents.length} événements
+          </div>
         </div>
       )}
       
-      {/* Informations sur les résultats */}
-      <div className="mt-4 text-sm text-gray-500 text-center">
-        Affichage de {indexOfFirstEvent + 1} à {Math.min(indexOfLastEvent, filteredEvents.length)} sur {filteredEvents.length} événements
-      </div>
+      {/* Si pas de pagination, afficher uniquement les informations sur les résultats */}
+      {totalPages <= 1 && (
+        <div className="mt-4 text-sm text-gray-500 text-center">
+          Affichage de {filteredEvents.length > 0 ? 1 : 0} à {filteredEvents.length} sur {filteredEvents.length} événements
+        </div>
+      )}
     </div>
   );
 };
