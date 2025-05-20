@@ -1,16 +1,16 @@
-/* Styles de base pour FullCalendar */
+/* Styles de base pour FullCalendar - Utilisation des couleurs primary pour les boutons */
 .fc {
-  --fc-border-color: #ddd;
-  --fc-button-bg-color: #2563eb;
-  --fc-button-border-color: #2563eb;
-  --fc-button-hover-bg-color: #1d4ed8;
-  --fc-button-hover-border-color: #1d4ed8;
-  --fc-button-active-bg-color: #1e40af;
-  --fc-button-active-border-color: #1e40af;
-  --fc-event-bg-color: #3b82f6;
-  --fc-event-border-color: #3b82f6;
+  --fc-border-color: #e5e7eb; /* gray-200 */
+  --fc-button-bg-color: #16a34a; /* primary-600 */
+  --fc-button-border-color: #16a34a; /* primary-600 */
+  --fc-button-hover-bg-color: #15803d; /* primary-700 */
+  --fc-button-hover-border-color: #15803d; /* primary-700 */
+  --fc-button-active-bg-color: #166534; /* primary-800 */
+  --fc-button-active-border-color: #166534; /* primary-800 */
+  --fc-event-bg-color: #16a34a; /* primary-600 - pour les événements par défaut */
+  --fc-event-border-color: #16a34a; /* primary-600 - pour les événements par défaut */
   --fc-event-text-color: #fff;
-  --fc-today-bg-color: rgba(37, 99, 235, 0.1);
+  --fc-today-bg-color: rgba(22, 163, 74, 0.1); /* primary-600 avec opacité */
 }
 
 .fc-header-toolbar {
@@ -20,6 +20,7 @@
 .fc-toolbar-title {
   font-size: 1.5em;
   font-weight: bold;
+  color: #166534; /* primary-800 */
 }
 
 .fc-daygrid-day-number {
@@ -29,18 +30,43 @@
 .fc-event {
   cursor: pointer;
   padding: 0.2em 0.5em;
-  border-radius: 3px;
+  border-radius: 0.375rem; /* rounded-md */
   font-size: 0.85em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* shadow-sm */
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fc-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
 }
 
 .fc-day-today {
   background-color: var(--fc-today-bg-color) !important;
 }
 
+/* Amélioration des en-têtes de colonnes */
+.fc-col-header-cell {
+  background-color: #f0fdf4; /* primary-50 */
+  padding: 8px 0;
+}
+
+.fc-col-header-cell-cushion {
+  font-weight: 600;
+  color: #166534; /* primary-800 */
+  text-decoration: none !important;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
 .fc-button {
   padding: 0.4em 0.65em;
   font-size: 0.9em;
-  border-radius: 0.25em;
+  border-radius: 0.375rem; /* rounded-md */
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* shadow-sm */
 }
 
 .fc-button-primary {
@@ -52,12 +78,19 @@
 .fc-button-primary:hover {
   background-color: var(--fc-button-hover-bg-color);
   border-color: var(--fc-button-hover-border-color);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
 }
 
 .fc-button-primary:not(:disabled):active,
 .fc-button-primary:not(:disabled).fc-button-active {
   background-color: var(--fc-button-active-bg-color);
   border-color: var(--fc-button-active-border-color);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.fc-button-primary:focus {
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.3); /* primary-600 avec opacité */
+  outline: none;
 }
 
 /* Responsive styles */

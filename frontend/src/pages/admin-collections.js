@@ -150,7 +150,7 @@ const AdminCollections = () => {
     });
   };
 
-  // Formater les événements pour FullCalendar
+  // Formater les événements pour FullCalendar avec les couleurs primary pour collectes et bleu pour marchés
   const formattedEvents = events.map(event => ({
     id: event._id,
     title: event.title,
@@ -166,15 +166,16 @@ const AdminCollections = () => {
       numberOfStands: event.numberOfStands,
       volunteers: event.volunteers
     },
-    backgroundColor: event.type?.toLowerCase() === 'marché' ? '#3b82f6' : '#16a34a', // Couleurs cohérentes avec la légende
-    borderColor: event.type?.toLowerCase() === 'marché' ? '#2563eb' : '#15803d'
+    backgroundColor: event.type?.toLowerCase() === 'marché' ? '#3b82f6' : '#16a34a', // blue-500 pour marché et primary-600 pour collectes
+    borderColor: event.type?.toLowerCase() === 'marché' ? '#2563eb' : '#15803d', // blue-600 pour marché et primary-700 pour collectes
+    textColor: '#ffffff' // Texte blanc pour un meilleur contraste
   }));
 
   return (
     <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Gestion des Collectes et Marchés</h1>
+      <div className="w-full max-w-7xl mx-auto px-6 py-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <h1 className="text-2xl font-bold text-primary-700">Gestion des Collectes et Marchés</h1>
           <div>
             <button 
               onClick={() => {
@@ -198,7 +199,7 @@ const AdminCollections = () => {
                 setSelectedEvent(null);
                 setIsModalOpen(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
             >
               Ajouter un événement
             </button>
@@ -212,7 +213,7 @@ const AdminCollections = () => {
             Erreur lors du chargement des événements. Veuillez réessayer.
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
 
             <FullCalendar
               ref={calendarRef}
@@ -234,16 +235,16 @@ const AdminCollections = () => {
             />
             
             {/* Légende du calendrier */}
-            <div className="mt-4 mb-6">
-              <h3 className="text-lg font-semibold mb-2">Légende</h3>
-              <div className="flex flex-wrap gap-4">
+            <div className="mt-6 mb-8">
+              <h3 className="text-lg font-semibold mb-3 text-primary-700">Légende</h3>
+              <div className="flex flex-wrap gap-6">
                 <div className="flex items-center">
-                  <div className="w-4 h-4 rounded-full bg-green-600 mr-2"></div>
-                  <span>Collectes</span>
+                  <div className="w-4 h-4 rounded-full bg-primary-600 mr-2 shadow-sm"></div>
+                  <span className="text-gray-700">Collectes</span>
                 </div>
                 <div className="flex items-center">
-                  <div className="w-4 h-4 rounded-full bg-blue-500 mr-2"></div>
-                  <span>Marché</span>
+                  <div className="w-4 h-4 rounded-full bg-blue-500 mr-2 shadow-sm"></div>
+                  <span className="text-gray-700">Marché</span>
                 </div>
               </div>
             </div>
