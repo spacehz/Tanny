@@ -2,10 +2,56 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import IndexLayout from '../components/layout/IndexLayout';
+import { useState, useEffect } from 'react';
 
 export default function Home() {
   const { user } = useAuth();
   const router = useRouter();
+  const [activeTestimonial, setActiveTestimonial] = useState(0);
+  
+  // Données pour les témoignages
+  const testimonials = [
+    {
+      id: 1,
+      text: "Grâce à TANY, je peux contribuer à réduire le gaspillage alimentaire tout en aidant les personnes dans le besoin. Une expérience enrichissante qui donne du sens à mon engagement.",
+      name: "Sophie Martin",
+      role: "Bénévole depuis 2021",
+      initial: "S"
+    },
+    {
+      id: 2,
+      text: "En tant que boulanger, je détestais jeter mes invendus. Avec TANY, je sais que mes produits sont redistribués à ceux qui en ont besoin. C'est une solution gagnant-gagnant !",
+      name: "Thomas Dubois",
+      role: "Commerçant partenaire",
+      initial: "T"
+    },
+    {
+      id: 3,
+      text: "L'équipe de TANY est très professionnelle et ponctuelle. Le processus de don est simple et rapide, ce qui est essentiel pour nous qui avons un commerce très actif.",
+      name: "Marie Leroy",
+      role: "Gérante de supermarché",
+      initial: "M"
+    }
+  ];
+  
+  // Fonction pour passer au témoignage suivant
+  const nextTestimonial = () => {
+    setActiveTestimonial((prev) => (prev + 1) % testimonials.length);
+  };
+  
+  // Fonction pour passer au témoignage précédent
+  const prevTestimonial = () => {
+    setActiveTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  };
+  
+  // Rotation automatique des témoignages
+  useEffect(() => {
+    const interval = setInterval(() => {
+      nextTestimonial();
+    }, 5000); // Change every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
   
   // Fonction pour gérer le clic sur les boutons d'accès
   const handleAccessClick = (role, linkUrl) => {
@@ -151,6 +197,128 @@ export default function Home() {
             <div className="bg-white rounded-lg shadow-md p-6 text-center">
               <div className="text-4xl font-bold text-primary-600 mb-2">100+</div>
               <p className="text-gray-700">Bénévoles actifs</p>
+            </div>
+          </div>
+          
+          {/* Testimonials Carousel Section */}
+          <div className="mb-16">
+            <h2 className="text-3xl font-semibold text-center mb-8 text-gray-800">
+              Ils témoignent
+            </h2>
+            
+            <div className="relative">
+              {/* Carousel container */}
+              <div className="overflow-hidden">
+                <div 
+                  className="flex transition-transform duration-500 ease-in-out transform" 
+                  style={{ transform: `translateX(-${activeTestimonial * 100}%)` }}
+                >
+                  {testimonials.map((testimonial, index) => (
+                    <div key={testimonial.id} className="w-full flex-shrink-0 px-4">
+                      <div className="bg-white rounded-xl shadow-lg p-8 relative">
+                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                          </svg>
+                        </div>
+                        <div className="text-center pt-6">
+                          <p className="text-lg text-gray-600 italic mb-6">
+                            "{testimonial.text}"
+                          </p>
+                          <div className="flex items-center justify-center">
+                            <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden mr-4">
+                              <div className="w-full h-full bg-primary-200 flex items-center justify-center text-primary-700 font-bold text-xl">
+                                {testimonial.initial}
+                              </div>
+                            </div>
+                            <div className="text-left">
+                              <p className="font-semibold text-gray-800">{testimonial.name}</p>
+                              <p className="text-sm text-gray-500">{testimonial.role}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Carousel navigation arrows */}
+              <button 
+                onClick={prevTestimonial}
+                className="absolute top-1/2 left-0 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md text-primary-600 hover:text-primary-800 transition-colors"
+                aria-label="Témoignage précédent"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              
+              <button 
+                onClick={nextTestimonial}
+                className="absolute top-1/2 right-0 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md text-primary-600 hover:text-primary-800 transition-colors"
+                aria-label="Témoignage suivant"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              
+              {/* Carousel indicators */}
+              <div className="flex justify-center mt-6 space-x-2">
+                {testimonials.map((_, index) => (
+                  <button 
+                    key={index}
+                    onClick={() => setActiveTestimonial(index)}
+                    className={`w-3 h-3 rounded-full transition-colors ${
+                      index === activeTestimonial ? 'bg-primary-600' : 'bg-gray-300 hover:bg-gray-400'
+                    }`}
+                    aria-label={`Témoignage ${index + 1}`}
+                  ></button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* How It Works Section */}
+          <div className="mb-16">
+            <h2 className="text-3xl font-semibold text-center mb-8 text-gray-800">
+              Comment ça marche
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Step 1 */}
+              <div className="bg-white rounded-lg shadow-md p-6 relative">
+                <div className="absolute -top-4 left-6 w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white font-bold">
+                  1
+                </div>
+                <h3 className="text-xl font-semibold mb-3 mt-2 text-gray-800">Inscription</h3>
+                <p className="text-gray-600">
+                  Créez votre compte en tant que bénévole ou commerçant pour rejoindre notre réseau de lutte contre le gaspillage.
+                </p>
+              </div>
+              
+              {/* Step 2 */}
+              <div className="bg-white rounded-lg shadow-md p-6 relative">
+                <div className="absolute -top-4 left-6 w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white font-bold">
+                  2
+                </div>
+                <h3 className="text-xl font-semibold mb-3 mt-2 text-gray-800">Participation</h3>
+                <p className="text-gray-600">
+                  Les commerçants signalent leurs surplus, les bénévoles s'inscrivent aux collectes selon leurs disponibilités.
+                </p>
+              </div>
+              
+              {/* Step 3 */}
+              <div className="bg-white rounded-lg shadow-md p-6 relative">
+                <div className="absolute -top-4 left-6 w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white font-bold">
+                  3
+                </div>
+                <h3 className="text-xl font-semibold mb-3 mt-2 text-gray-800">Distribution</h3>
+                <p className="text-gray-600">
+                  Les aliments collectés sont redistribués aux associations partenaires qui les distribuent aux personnes dans le besoin.
+                </p>
+              </div>
             </div>
           </div>
         </main>
