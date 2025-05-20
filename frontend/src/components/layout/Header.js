@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +17,19 @@ const Header = () => {
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+  
+  // Écouter l'événement personnalisé pour ouvrir le modal d'inscription
+  useEffect(() => {
+    const handleOpenRegisterModal = () => {
+      setShowRegisterModal(true);
+    };
+    
+    document.addEventListener('open-register-modal', handleOpenRegisterModal);
+    
+    return () => {
+      document.removeEventListener('open-register-modal', handleOpenRegisterModal);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -25,48 +38,31 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-primary-600 text-white fixed top-0 left-0 right-0 z-20 h-14">
+    <header className="bg-primary-600 text-white fixed top-0 left-0 right-0 z-20 h-16 shadow-header">
       {/* Modal d'inscription */}
       <RegisterModal 
         isOpen={showRegisterModal} 
         onClose={() => setShowRegisterModal(false)} 
       />
       
-      <div className="max-w-full mx-auto px-6 py-2">
+      <div className="max-w-full mx-auto px-6 py-3">
         <div className="flex justify-between items-center">
-          {/* Logo - Sans ajustement de marge, car nous gérons l'alignement dans Layout */}
-          <Link href="/" className="text-2xl font-bold">
-            TANY
+          {/* Logo avec effet de transition */}
+          <Link href="/" className="text-2xl font-bold tracking-wide hover:text-primary-200 transition-colors duration-300 flex items-center">
+            <span className="text-white">T</span>
+            <span className="text-primary-300">ANY</span>
           </Link>
 
           {/* Navigation - Desktop */}
-          <nav className="hidden md:flex space-x-6 ml-10">
-            <Link href="/" className={`hover:text-primary-200 ${router.pathname === '/' ? 'font-bold' : ''}`}>
-              Accueil
-            </Link>
-            <Link href="/about" className={`hover:text-primary-200 ${router.pathname === '/about' ? 'font-bold' : ''}`}>
+          <nav className="hidden md:flex space-x-8 ml-10">
+            <Link href="/about" className={`hover:text-white transition-colors duration-300 relative group ${router.pathname === '/about' ? 'font-bold' : ''}`}>
               À propos
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-white transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            <Link href="/contact" className={`hover:text-primary-200 ${router.pathname === '/contact' ? 'font-bold' : ''}`}>
+            <Link href="/contact" className={`hover:text-white transition-colors duration-300 relative group ${router.pathname === '/contact' ? 'font-bold' : ''}`}>
               Contact
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-white transition-all duration-300 group-hover:w-full"></span>
             </Link>
-            
-            {/* Liens conditionnels basés sur le rôle */}
-            {isAdmin && (
-              <Link href="/admin" className={`hover:text-primary-200 ${router.pathname.startsWith('/admin') ? 'font-bold' : ''}`}>
-                Administration
-              </Link>
-            )}
-            {isVolunteer && (
-              <Link href="/volunteer" className={`hover:text-primary-200 ${router.pathname.startsWith('/volunteer') ? 'font-bold' : ''}`}>
-                Espace Bénévole
-              </Link>
-            )}
-            {isMerchant && (
-              <Link href="/merchant" className={`hover:text-primary-200 ${router.pathname.startsWith('/merchant') ? 'font-bold' : ''}`}>
-                Espace Commerçant
-              </Link>
-            )}
           </nav>
 
           {/* Spacer to push user info to the right */}
@@ -77,28 +73,29 @@ const Header = () => {
             {isAuthenticated ? (
               <>
                 <div className="flex items-center mr-4">
-                  <div className="bg-primary-700 rounded-full p-1 mr-2">
+                  <div className="bg-primary-700 rounded-full p-1.5 mr-2 shadow-inner">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
-                  <span className="font-medium text-white">Bonjour, {user?.name}</span>
+                  <span className="font-medium text-white">Bonjour, <span className="text-primary-200">{user?.name}</span></span>
                 </div>
                 <button 
                   onClick={handleLogout}
-                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors font-medium"
+                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-all duration-300 font-medium shadow-sm hover:shadow-md"
                 >
                   Déconnexion
                 </button>
               </>
             ) : (
               <>
-                <Link href="/login" className="text-white hover:text-primary-200 font-medium">
+                <Link href="/login" className="text-white hover:text-primary-200 font-medium transition-colors duration-300 relative group">
                   Connexion
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-white transition-all duration-300 group-hover:w-full"></span>
                 </Link>
                 <button 
                   onClick={() => setShowRegisterModal(true)} 
-                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors font-medium"
+                  className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-all duration-300 font-medium shadow-sm hover:shadow-md"
                 >
                   Inscription
                 </button>
@@ -106,71 +103,53 @@ const Header = () => {
             )}
           </div>
 
-          {/* Hamburger Menu - Mobile */}
-          <button className="md:hidden" onClick={toggleMenu}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+          {/* Hamburger Menu - Mobile avec animation */}
+          <button className="md:hidden focus:outline-none group" onClick={toggleMenu}>
+            <div className="relative w-6 h-5">
+              <span className={`absolute h-0.5 w-6 bg-white transform transition-all duration-300 ${isMenuOpen ? 'rotate-45 top-2.5' : 'top-0'}`}></span>
+              <span className={`absolute h-0.5 w-6 bg-white top-2 transition-opacity duration-300 ${isMenuOpen ? 'opacity-0' : 'opacity-100'}`}></span>
+              <span className={`absolute h-0.5 w-6 bg-white transform transition-all duration-300 ${isMenuOpen ? '-rotate-45 top-2.5' : 'top-4'}`}></span>
+            </div>
           </button>
         </div>
 
         {/* Menu Mobile */}
         {isMenuOpen && (
-          <div className="md:hidden mt-4 pb-4">
+          <div className="md:hidden mt-4 pb-4 animate-fadeIn">
             <nav className="flex flex-col space-y-3">
-              <Link href="/" className={`hover:text-primary-200 ${router.pathname === '/' ? 'font-bold' : ''}`}>
-                Accueil
-              </Link>
-              <Link href="/about" className={`hover:text-primary-200 ${router.pathname === '/about' ? 'font-bold' : ''}`}>
+              <Link href="/about" className={`hover:text-white transition-colors duration-300 ${router.pathname === '/about' ? 'font-bold' : ''}`}>
                 À propos
               </Link>
-              <Link href="/contact" className={`hover:text-primary-200 ${router.pathname === '/contact' ? 'font-bold' : ''}`}>
+              <Link href="/contact" className={`hover:text-white transition-colors duration-300 ${router.pathname === '/contact' ? 'font-bold' : ''}`}>
                 Contact
               </Link>
-              
-              {/* Liens conditionnels basés sur le rôle */}
-              {isAdmin && (
-                <Link href="/admin" className={`hover:text-primary-200 ${router.pathname.startsWith('/admin') ? 'font-bold' : ''}`}>
-                  Administration
-                </Link>
-              )}
-              {isVolunteer && (
-                <Link href="/volunteer" className={`hover:text-primary-200 ${router.pathname.startsWith('/volunteer') ? 'font-bold' : ''}`}>
-                  Espace Bénévole
-                </Link>
-              )}
-              {isMerchant && (
-                <Link href="/merchant" className={`hover:text-primary-200 ${router.pathname.startsWith('/merchant') ? 'font-bold' : ''}`}>
-                  Espace Commerçant
-                </Link>
-              )}
 
               {/* Boutons de connexion/déconnexion - Mobile */}
               {isAuthenticated ? (
                 <>
                   <div className="flex items-center mb-2">
-                    <div className="bg-primary-700 rounded-full p-1 mr-2">
+                    <div className="bg-primary-700 rounded-full p-1.5 mr-2 shadow-inner">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
-                    <span className="font-medium text-white">Bonjour, {user?.name}</span>
+                    <span className="font-medium text-white">Bonjour, <span className="text-primary-200">{user?.name}</span></span>
                   </div>
                   <button 
                     onClick={handleLogout}
-                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors self-start font-medium"
+                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-all duration-300 self-start font-medium shadow-sm hover:shadow-md"
                   >
                     Déconnexion
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/login" className="hover:text-primary-200 font-medium">
+                  <Link href="/login" className="hover:text-white transition-colors duration-300 font-medium">
                     Connexion
                   </Link>
                   <button 
                     onClick={() => setShowRegisterModal(true)} 
-                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-colors self-start font-medium"
+                    className="bg-white text-primary-600 px-4 py-2 rounded-md hover:bg-primary-100 transition-all duration-300 self-start font-medium shadow-sm hover:shadow-md"
                   >
                     Inscription
                   </button>
