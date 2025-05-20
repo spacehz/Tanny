@@ -13,6 +13,7 @@ import EventsTable from '../components/EventsTable';
 import EventVolunteerAssignmentModal from '../components/EventVolunteerAssignmentModal';
 
 import { createEvent, updateEvent, deleteEvent } from '../services/eventService';
+import { showSuccessToast, showErrorToast } from '../utils/toast';
 
 const AdminCollections = () => {
   const router = useRouter();
@@ -105,9 +106,13 @@ const AdminCollections = () => {
       if (selectedEvent) {
         // Mise à jour d'un événement existant
         await updateEvent(selectedEvent.id, formData);
+        // Afficher un toast de succès pour la mise à jour
+        showSuccessToast(`L'événement "${formData.title}" a été mis à jour avec succès`);
       } else {
         // Ajout d'un nouvel événement
         await createEvent(formData);
+        // Afficher un toast de succès pour la création
+        showSuccessToast(`L'événement "${formData.title}" a été créé avec succès`);
       }
       
       // Rafraîchir les données
@@ -117,7 +122,8 @@ const AdminCollections = () => {
       setIsModalOpen(false);
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de l\'événement:', error);
-      alert('Une erreur est survenue lors de la sauvegarde de l\'événement.');
+      // Remplacer l'alerte par un toast d'erreur
+      showErrorToast('Une erreur est survenue lors de la sauvegarde de l\'événement.');
     }
   };
 
@@ -125,13 +131,21 @@ const AdminCollections = () => {
   const handleDeleteEvent = async (eventId) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) {
       try {
+        // Trouver le titre de l'événement avant de le supprimer
+        const eventToDelete = events.find(event => event._id === eventId);
+        const eventTitle = eventToDelete ? eventToDelete.title : 'Événement';
+        
         await deleteEvent(eventId);
         
         // Rafraîchir les données
         mutate('/api/events');
+        
+        // Afficher un toast de succès pour la suppression
+        showSuccessToast(`L'événement "${eventTitle}" a été supprimé avec succès`);
       } catch (error) {
         console.error('Erreur lors de la suppression de l\'événement:', error);
-        alert('Une erreur est survenue lors de la suppression de l\'événement.');
+        // Remplacer l'alerte par un toast d'erreur
+        showErrorToast('Une erreur est survenue lors de la suppression de l\'événement.');
       }
     }
   };

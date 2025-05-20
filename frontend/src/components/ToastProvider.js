@@ -14,16 +14,24 @@ const ToastProvider = () => {
         success: {
           duration: 3000,
           style: {
-            background: 'green',
+            background: '#16a34a', // primary-600 (vert)
             color: 'white',
+            borderRadius: '0.5rem',
+            padding: '0.75rem 1rem',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           },
+          icon: '👍',
         },
         error: {
           duration: 4000,
           style: {
-            background: 'red',
+            background: '#dc2626', // red-600
             color: 'white',
+            borderRadius: '0.5rem',
+            padding: '0.75rem 1rem',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           },
+          icon: '❌',
         },
         loading: {
           duration: Infinity,
