@@ -22,7 +22,7 @@ const AdminCollections = () => {
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedEventForAssignment, setSelectedEventForAssignment] = useState(null);
-  const [itemsPerPage, setItemsPerPage] = useState(10); // Valeur par défaut
+  const [itemsPerPage, setItemsPerPage] = useState(5); // Valeur par défaut
   // Suppression du mode 'detailedTable' car nous avons maintenant un tableau sous le calendrier
   const [formData, setFormData] = useState({
     title: '',
