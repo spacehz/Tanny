@@ -2,6 +2,92 @@ const Event = require('../models/Event');
 const User = require('../models/User');
 
 /**
+ * Fonction utilitaire pour générer les événements récurrents
+ */
+const generateRecurringEvents = (mainEvent, recurrence) => {
+  const occurrences = [];
+  const startDate = new Date(mainEvent.start);
+  const endDate = new Date(mainEvent.end);
+  const duration = endDate - startDate; // Durée en millisecondes
+  
+  let currentDate = new Date(startDate);
+  let count = 0;
+  
+  // Déterminer la date limite
+  const untilDate = recurrence.until ? new Date(recurrence.until) : null;
+  const maxCount = recurrence.count || Number.MAX_SAFE_INTEGER;
+  
+  // Calculer l'intervalle en millisecondes selon la fréquence
+  let intervalMs = 0;
+  switch (recurrence.frequency) {
+    case 'daily':
+      intervalMs = 24 * 60 * 60 * 1000 * recurrence.interval;
+      break;
+    case 'weekly':
+      intervalMs = 7 * 24 * 60 * 60 * 1000 * recurrence.interval;
+      break;
+    case 'monthly':
+      // Pour les occurrences mensuelles, on utilisera une logique différente
+      break;
+  }
+  
+  // Générer les occurrences
+  while (count < maxCount) {
+    // Passer à la prochaine occurrence
+    if (recurrence.frequency === 'monthly') {
+      // Logique pour les occurrences mensuelles
+      currentDate = new Date(currentDate);
+      currentDate.setMonth(currentDate.getMonth() + recurrence.interval);
+      
+      // Si byMonthDay est spécifié, définir le jour du mois
+      if (recurrence.byMonthDay) {
+        currentDate.setDate(Math.min(recurrence.byMonthDay, getDaysInMonth(currentDate.getMonth(), currentDate.getFullYear())));
+      }
+      
+      // Si byMonth est spécifié, vérifier si le mois correspond
+      if (recurrence.byMonth && currentDate.getMonth() + 1 !== recurrence.byMonth) {
+        continue;
+      }
+    } else {
+      // Pour daily et weekly, simplement ajouter l'intervalle
+      currentDate = new Date(currentDate.getTime() + intervalMs);
+    }
+    
+    // Vérifier si on a dépassé la date limite
+    if (untilDate && currentDate > untilDate) {
+      break;
+    }
+    
+    // Créer l'occurrence
+    const occurrenceEndDate = new Date(currentDate.getTime() + duration);
+    
+    occurrences.push({
+      title: mainEvent.title,
+      start: currentDate,
+      end: occurrenceEndDate,
+      type: mainEvent.type,
+      description: mainEvent.description,
+      location: mainEvent.location,
+      expectedVolunteers: mainEvent.expectedVolunteers,
+      duration: mainEvent.duration,
+      numberOfStands: mainEvent.numberOfStands,
+      merchants: mainEvent.merchants,
+      parentEventId: mainEvent._id,
+      isRecurring: false // Les occurrences ne sont pas récurrentes elles-mêmes
+    });
+    
+    count++;
+  }
+  
+  return occurrences;
+};
+
+// Fonction utilitaire pour obtenir le nombre de jours dans un mois
+const getDaysInMonth = (month, year) => {
+  return new Date(year, month + 1, 0).getDate();
+};
+
+/**
  * @desc    Créer un nouvel événement
  * @route   POST /api/events
  * @access  Privé/Admin
@@ -20,6 +106,9 @@ const createEvent = async (req, res) => {
       duration,
       numberOfStands,
       volunteers,
+      // Nouveaux champs pour la récurrence
+      isRecurring,
+      recurrence
     } = req.body;
 
     // Vérifier que les dates sont valides
@@ -29,7 +118,7 @@ const createEvent = async (req, res) => {
       });
     }
 
-    // Créer l'événement
+    // Créer l'événement principal
     const eventData = {
       title,
       start,
@@ -39,15 +128,42 @@ const createEvent = async (req, res) => {
       location,
       expectedVolunteers, // Utilisé pour tous les types d'événements
       volunteers,
+      duration,
+      isRecurring: isRecurring || false
     };
     
-    // Ajouter merchantId au tableau merchants seulement s'il est défini et non vide (uniquement pour les collectes)
+    // Ajouter les champs spécifiques au type d'événement
     if (type === 'collecte' && merchantId && merchantId.trim() !== '') {
       // Initialiser le tableau merchants s'il n'existe pas
       eventData.merchants = [merchantId];
+    } else if (type === 'marché') {
+      eventData.numberOfStands = parseInt(numberOfStands) || 1;
     }
     
+    // Ajouter les informations de récurrence si nécessaire
+    if (isRecurring && recurrence) {
+      eventData.recurrence = {
+        frequency: recurrence.frequency || 'weekly',
+        interval: parseInt(recurrence.interval) || 1,
+        count: parseInt(recurrence.count) || 0,
+        until: recurrence.until ? new Date(recurrence.until) : null,
+        byMonthDay: parseInt(recurrence.byMonthDay) || null,
+        byMonth: parseInt(recurrence.byMonth) || null
+      };
+    }
+    
+    // Créer l'événement principal
     const event = await Event.create(eventData);
+    
+    // Si l'événement est récurrent, créer les occurrences
+    if (isRecurring && recurrence) {
+      const occurrences = generateRecurringEvents(event, recurrence);
+      
+      // Créer les occurrences en base de données
+      if (occurrences.length > 0) {
+        await Event.insertMany(occurrences);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -137,6 +253,10 @@ const updateEvent = async (req, res) => {
       duration,
       numberOfStands,
       volunteers,
+      // Nouveaux champs pour la récurrence
+      isRecurring,
+      recurrence,
+      updateRecurringEvents
     } = req.body;
 
     // Vérifier que les dates sont valides
@@ -165,6 +285,8 @@ const updateEvent = async (req, res) => {
       location,
       expectedVolunteers, // Utilisé pour tous les types d'événements
       volunteers,
+      duration,
+      isRecurring: isRecurring || false
     };
     
     // Gérer le tableau merchants pour les collectes
@@ -176,9 +298,25 @@ const updateEvent = async (req, res) => {
         // Si le type est collecte mais merchantId est vide, définir à un tableau vide
         updateData.merchants = [];
       }
-    } else {
+    } else if (type === 'marché') {
       // Si le type est marché, définir à undefined pour le supprimer
       updateData.merchants = undefined;
+      updateData.numberOfStands = parseInt(numberOfStands) || 1;
+    }
+    
+    // Ajouter les informations de récurrence si nécessaire
+    if (isRecurring && recurrence) {
+      updateData.recurrence = {
+        frequency: recurrence.frequency || 'weekly',
+        interval: parseInt(recurrence.interval) || 1,
+        count: parseInt(recurrence.count) || 0,
+        until: recurrence.until ? new Date(recurrence.until) : null,
+        byMonthDay: parseInt(recurrence.byMonthDay) || null,
+        byMonth: parseInt(recurrence.byMonth) || null
+      };
+    } else {
+      // Si l'événement n'est plus récurrent, supprimer les informations de récurrence
+      updateData.recurrence = undefined;
     }
     
     // Mettre à jour l'événement
@@ -190,6 +328,64 @@ const updateEvent = async (req, res) => {
         runValidators: true,
       }
     );
+
+    // Si l'événement est récurrent et que l'utilisateur a demandé de mettre à jour les occurrences futures
+    if (isRecurring && updateRecurringEvents === 'future' && !event.parentEventId) {
+      // Supprimer les occurrences futures existantes
+      await Event.deleteMany({
+        parentEventId: event._id,
+        start: { $gt: new Date() }
+      });
+      
+      // Générer de nouvelles occurrences
+      const occurrences = generateRecurringEvents(event, event.recurrence);
+      
+      // Créer les occurrences en base de données
+      if (occurrences.length > 0) {
+        await Event.insertMany(occurrences);
+      }
+    }
+    // Si l'événement est récurrent et que l'utilisateur a demandé de mettre à jour toutes les occurrences
+    else if (isRecurring && updateRecurringEvents === 'all' && !event.parentEventId) {
+      // Supprimer toutes les occurrences existantes
+      await Event.deleteMany({
+        parentEventId: event._id
+      });
+      
+      // Générer de nouvelles occurrences
+      const occurrences = generateRecurringEvents(event, event.recurrence);
+      
+      // Créer les occurrences en base de données
+      if (occurrences.length > 0) {
+        await Event.insertMany(occurrences);
+      }
+    }
+    // Si l'événement est une occurrence et que l'utilisateur a demandé de mettre à jour toutes les occurrences
+    else if (event.parentEventId && updateRecurringEvents === 'all') {
+      // Récupérer l'événement parent
+      const parentEvent = await Event.findById(event.parentEventId);
+      
+      if (parentEvent) {
+        // Mettre à jour l'événement parent avec les mêmes données
+        const parentUpdateData = { ...updateData };
+        delete parentUpdateData.start; // Conserver la date de début de l'événement parent
+        delete parentUpdateData.end; // Conserver la date de fin de l'événement parent
+        
+        await Event.findByIdAndUpdate(
+          parentEvent._id,
+          parentUpdateData,
+          {
+            runValidators: true,
+          }
+        );
+        
+        // Mettre à jour toutes les occurrences
+        await Event.updateMany(
+          { parentEventId: parentEvent._id },
+          { $set: parentUpdateData }
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -211,6 +407,7 @@ const updateEvent = async (req, res) => {
  */
 const deleteEvent = async (req, res) => {
   try {
+    const { deleteRecurringEvents } = req.query;
     const event = await Event.findById(req.params.id);
 
     if (!event) {
@@ -220,7 +417,53 @@ const deleteEvent = async (req, res) => {
       });
     }
 
-    await event.remove();
+    // Si c'est un événement parent récurrent et que l'utilisateur veut supprimer toutes les occurrences
+    if (event.isRecurring && deleteRecurringEvents === 'all') {
+      // Supprimer toutes les occurrences
+      await Event.deleteMany({ parentEventId: event._id });
+    }
+    // Si c'est un événement parent récurrent et que l'utilisateur veut supprimer les occurrences futures
+    else if (event.isRecurring && deleteRecurringEvents === 'future') {
+      // Supprimer les occurrences futures
+      await Event.deleteMany({
+        parentEventId: event._id,
+        start: { $gte: new Date() }
+      });
+    }
+    // Si c'est une occurrence et que l'utilisateur veut supprimer toutes les occurrences
+    else if (event.parentEventId && deleteRecurringEvents === 'all') {
+      // Supprimer l'événement parent et toutes ses occurrences
+      await Event.deleteMany({ 
+        $or: [
+          { _id: event.parentEventId },
+          { parentEventId: event.parentEventId }
+        ]
+      });
+      
+      // Pas besoin de supprimer l'événement actuel car il est inclus dans la requête ci-dessus
+      return res.status(200).json({
+        success: true,
+        message: 'Série d\'événements supprimée avec succès',
+      });
+    }
+    // Si c'est une occurrence et que l'utilisateur veut supprimer les occurrences futures
+    else if (event.parentEventId && deleteRecurringEvents === 'future') {
+      // Supprimer les occurrences futures y compris celle-ci
+      await Event.deleteMany({
+        parentEventId: event.parentEventId,
+        start: { $gte: event.start }
+      });
+      
+      // Pas besoin de supprimer l'événement actuel car il est inclus dans la requête ci-dessus
+      return res.status(200).json({
+        success: true,
+        message: 'Occurrences futures supprimées avec succès',
+      });
+    }
+    // Sinon, supprimer uniquement cet événement
+    else {
+      await event.remove();
+    }
 
     res.status(200).json({
       success: true,

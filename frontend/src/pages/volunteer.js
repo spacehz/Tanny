@@ -113,8 +113,7 @@ export default function VolunteerPage() {
           start: event.start,
           end: event.end,
           allDay: event.allDay || false,
-          backgroundColor: eventColor,
-          borderColor: eventColor,
+          // Ne pas définir backgroundColor et borderColor ici pour permettre à eventContent de les gérer
           textColor: '#ffffff',
           display: 'block', // Forcer l'affichage en bloc pour une meilleure visibilité
           extendedProps: {
@@ -146,14 +145,14 @@ export default function VolunteerPage() {
 
   // Fonction pour déterminer la couleur en fonction du type d'événement
   const getEventColor = (type) => {
-    if (!type) return '#10b981'; // Vert par défaut (collecte)
+    if (!type) return '#16a34a'; // primary-600 (vert) par défaut pour les collectes
     
     const lowerType = String(type).toLowerCase();
-    if (lowerType.includes('collecte')) return '#10b981'; // Vert
-    if (lowerType.includes('marché') || lowerType.includes('marche')) return '#3b82f6'; // Bleu
+    if (lowerType.includes('collecte')) return '#16a34a'; // primary-600 (vert) pour les collectes
+    if (lowerType.includes('marché') || lowerType.includes('marche')) return '#3b82f6'; // blue-500 pour les marchés
     
     // Par défaut, retourner vert (collecte)
-    return '#10b981';
+    return '#16a34a';
   };
 
   // Fonction pour gérer le clic sur un événement
@@ -295,39 +294,68 @@ export default function VolunteerPage() {
                 hour12: false
               }}
               eventDisplay="block"
-              eventBackgroundColor="#10b981"
-              eventBorderColor="#10b981"
               eventContent={(eventInfo) => {
                 const event = eventInfo.event;
                 const isUserRegistered = event.extendedProps.isUserRegistered;
-                const eventColor = getEventColor(event.extendedProps.type);
+                const eventType = event.extendedProps.type;
+                const availableSpots = event.extendedProps.availableSpots;
+                const totalVolunteersNeeded = event.extendedProps.volunteersNeeded;
+                const registeredVolunteers = event.extendedProps.registeredVolunteers;
+                
+                // Déterminer la couleur en fonction du type d'événement
+                let indicatorColor;
+                if (eventType?.toLowerCase().includes('marché') || eventType?.toLowerCase().includes('marche')) {
+                  indicatorColor = '#3b82f6'; // blue-500 pour marché
+                } else {
+                  indicatorColor = '#16a34a'; // primary-600 pour collectes
+                }
                 
                 return (
-                  <div 
-                    className="flex items-center p-1 rounded" 
-                    style={{ 
-                      backgroundColor: eventColor,
-                      borderColor: eventColor,
-                      color: 'white'
-                    }}
-                  >
-                    {isUserRegistered && (
-                      <span className="inline-block w-2 h-2 bg-white rounded-full mr-1" title="Vous êtes inscrit"></span>
-                    )}
-                    <div className="text-sm font-medium truncate">{event.title}</div>
+                  <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
+                    <div className="flex">
+                      {/* Indicateur coloré à gauche */}
+                      <div 
+                        className="w-1" 
+                        style={{ backgroundColor: indicatorColor }}
+                      ></div>
+                      
+                      {/* Contenu de l'événement */}
+                      <div className="flex-1 p-1">
+                        <div className="flex items-center">
+                          {isUserRegistered && (
+                            <span className="inline-block w-2 h-2 bg-primary-600 rounded-full mr-1" title="Vous êtes inscrit"></span>
+                          )}
+                          <div className="text-xs font-medium text-gray-800 truncate">{event.title}</div>
+                        </div>
+                        <div className="text-xs text-right text-gray-600 whitespace-nowrap">
+                          {registeredVolunteers}/{totalVolunteersNeeded}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 );
               }}
             />
           </div>
-          <div className="mt-4 flex items-center justify-end text-sm">
-            <div className="flex items-center mr-4">
-              <span className="inline-block w-3 h-3 rounded-full bg-primary-600 mr-2"></span>
-              <span className="text-gray-600">Collecte</span>
-            </div>
-            <div className="flex items-center mr-4">
-              <span className="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span>
-              <span className="text-gray-600">Marché</span>
+          <div className="mt-6 mb-8">
+            <h3 className="text-lg font-semibold mb-3 text-primary-700">Légende</h3>
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center">
+                <div className="w-4 h-4 rounded-full bg-primary-600 mr-2 shadow-sm"></div>
+                <span className="text-gray-700">Collectes</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 rounded-full bg-blue-500 mr-2 shadow-sm"></div>
+                <span className="text-gray-700">Marché</span>
+              </div>
+              {user && (
+                <div className="flex items-center">
+                  <div className="flex items-center">
+                    <span className="inline-block w-2 h-2 bg-primary-600 rounded-full mr-1"></span>
+                    <span className="text-gray-700">Vous êtes inscrit</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
