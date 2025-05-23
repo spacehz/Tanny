@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // Utilisation d'une URL de connexion avec authSource=admin pour spécifier la base de données d'authentification
-    const conn = await mongoose.connect('mongodb://admin:12345@localhost:27017/TANY?authSource=admin', {
+    // Use the MONGO_URI from environment variables
+    const mongoURI = process.env.MONGO_URI || 'mongodb://admin:12345@localhost:27017/TANY?authSource=admin';
+    
+    const conn = await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
