@@ -251,68 +251,44 @@ const RegisterModal = ({ isOpen, onClose }) => {
         // Afficher un message de débogage dans la console
         console.log('Données d\'inscription:', userData);
         
-        // Tester l'API directement pour voir si le problème vient du service d'authentification
-        try {
-          console.log('Test direct de l\'API...');
-          const api = await import('../services/api').then(module => module.default);
-          
-          if (userType === 'merchant') {
-            // Créer d'abord le commerçant
-            const merchantData = {
-              businessName: userData.businessName,
-              legalRepresentative: userData.legalRepresentative,
-              email: userData.email,
-              phoneNumber: userData.phoneNumber,
-              siret: userData.siret,
-              address: userData.address
-            };
-            
-            console.log('Test API: création du commerçant avec les données:', merchantData);
-            const merchantResponse = await api.post('/api/merchants', merchantData);
-            console.log('Test API: réponse de création du commerçant:', merchantResponse);
-            
-            // Puis créer l'utilisateur associé
-            const userAccountData = {
-              name: userData.name,
-              email: userData.email,
-              password: userData.password,
-              role: 'commercant',
-              businessName: userData.businessName
-            };
-            
-            console.log('Test API: création de l\'utilisateur avec les données:', userAccountData);
-            const userResponse = await api.post('/api/users/register', userAccountData);
-            console.log('Test API: réponse de création de l\'utilisateur:', userResponse);
-          } else {
-            console.log('Test API: création du bénévole avec les données:', userData);
-            const response = await api.post('/api/users/register', userData);
-            console.log('Test API: réponse de création du bénévole:', response);
-          }
-        } catch (apiError) {
-          console.error('Test API: erreur lors de l\'appel direct à l\'API:', apiError);
-          if (apiError.response) {
-            console.error('Test API: détails de l\'erreur:', apiError.response.data);
-          }
-        }
-        
         // Utiliser le service d'authentification normal
         const success = await register(userData);
         
-        if (success) {
-          // Afficher un message de succès
-          alert('Inscription réussie ! Vous allez être redirigé.');
-          onClose();
-          
+        // Afficher un message de succès
+        alert('Inscription réussie ! Vous allez être redirigé.');
+        
+        // Fermer le modal
+        onClose();
+        
+        // Redirection avec un léger délai pour permettre au modal de se fermer complètement
+        setTimeout(() => {
           // Redirection selon le type d'utilisateur
           if (userType === 'merchant') {
             router.push('/merchant');
           } else {
             router.push('/volunteer');
           }
-        }
+        }, 500);
       } catch (err) {
         console.error('Erreur d\'inscription:', err);
-        setErrors({ submit: err.message || 'Une erreur est survenue lors de l\'inscription' });
+        
+        // Extraire le message d'erreur de la réponse API si disponible
+        let errorMessage = 'Une erreur est survenue lors de l\'inscription';
+        
+        if (err.response && err.response.data && err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+        
+        // Si l'erreur indique que l'utilisateur existe déjà, afficher un message plus convivial
+        if (errorMessage.includes('existe déjà')) {
+          errorMessage = 'Un compte avec cet email existe déjà. Veuillez vous connecter ou utiliser un autre email.';
+        }
+        
+        setErrors({ submit: errorMessage });
+        // En cas d'erreur, le modal reste ouvert pour permettre à l'utilisateur de corriger les erreurs
+        // ou de réessayer
       } finally {
         setLoading(false);
       }
@@ -544,6 +520,12 @@ const RegisterModal = ({ isOpen, onClose }) => {
         Informations complémentaires
       </h3>
       
+      {errors.submit && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
+          <p className="text-sm">{errors.submit}</p>
+        </div>
+      )}
+      
       <div>
         <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
           Adresse
@@ -624,6 +606,12 @@ const RegisterModal = ({ isOpen, onClose }) => {
       <h3 className="text-xl font-medium text-primary-700 text-center mb-6">
         Informations commerciales
       </h3>
+      
+      {errors.submit && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
+          <p className="text-sm">{errors.submit}</p>
+        </div>
+      )}
       
       <div>
         <label htmlFor="businessName" className="block text-sm font-medium text-gray-700 mb-1">

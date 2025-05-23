@@ -27,7 +27,15 @@ exports.registerUser = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { name, email, password } = req.body;
+  const { name, email, password, phoneNumber, address } = req.body;
+  
+  console.log('Données reçues pour l\'inscription:', { 
+    name, 
+    email, 
+    passwordLength: password ? password.length : 0,
+    phoneNumber,
+    address
+  });
 
   try {
     // Vérifier si l'utilisateur existe déjà
@@ -42,6 +50,8 @@ exports.registerUser = async (req, res) => {
       name,
       email,
       password,
+      phoneNumber: req.body.phoneNumber || '',
+      address: req.body.address || '',
     });
 
     if (user) {
@@ -50,6 +60,8 @@ exports.registerUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        phoneNumber: user.phoneNumber,
+        address: user.address,
         token: generateToken(user._id),
       });
     } else {
