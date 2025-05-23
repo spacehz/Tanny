@@ -46,7 +46,7 @@ app.get('/api/csrf-token', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/merchants', merchantRoutes);
-app.use('/api/merchants/auth', merchantAuthRoutes);
+app.use('/api/merchants', merchantAuthRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/assignments', assignmentRoutes);
 

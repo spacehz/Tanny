@@ -27,14 +27,16 @@ exports.registerUser = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { name, email, password, phoneNumber, address } = req.body;
+  const { name, email, password, phoneNumber, address, role, businessName } = req.body;
   
   console.log('Données reçues pour l\'inscription:', { 
     name, 
     email, 
     passwordLength: password ? password.length : 0,
     phoneNumber,
-    address
+    address,
+    role,
+    businessName
   });
 
   try {
@@ -45,13 +47,26 @@ exports.registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Cet utilisateur existe déjà' });
     }
 
+    // Traiter l'adresse correctement (peut être un objet ou une chaîne)
+    let formattedAddress = '';
+    if (typeof address === 'object') {
+      // Si l'adresse est un objet (comme dans le modèle Merchant)
+      const { street, city, postalCode, country } = address;
+      formattedAddress = `${street || ''}, ${postalCode || ''} ${city || ''}, ${country || 'France'}`.trim();
+    } else {
+      // Si l'adresse est déjà une chaîne
+      formattedAddress = address || '';
+    }
+
     // Créer un nouvel utilisateur
     const user = await User.create({
       name,
       email,
       password,
-      phoneNumber: req.body.phoneNumber || '',
-      address: req.body.address || '',
+      phoneNumber: phoneNumber || '',
+      address: formattedAddress,
+      role: role || 'bénévole',
+      businessName: businessName || '',
     });
 
     if (user) {
@@ -62,6 +77,7 @@ exports.registerUser = async (req, res) => {
         role: user.role,
         phoneNumber: user.phoneNumber,
         address: user.address,
+        businessName: user.businessName,
         token: generateToken(user._id),
       });
     } else {
@@ -513,6 +529,17 @@ exports.createMerchant = async (req, res) => {
       return res.status(400).json({ message: 'Cet utilisateur existe déjà' });
     }
 
+    // Traiter l'adresse correctement (peut être un objet ou une chaîne)
+    let formattedAddress = '';
+    if (typeof address === 'object') {
+      // Si l'adresse est un objet (comme dans le modèle Merchant)
+      const { street, city, postalCode, country } = address;
+      formattedAddress = `${street || ''}, ${postalCode || ''} ${city || ''}, ${country || 'France'}`.trim();
+    } else {
+      // Si l'adresse est déjà une chaîne
+      formattedAddress = address || '';
+    }
+
     // Créer un nouveau commerçant
     const merchant = await User.create({
       name,
@@ -520,9 +547,8 @@ exports.createMerchant = async (req, res) => {
       password,
       role: 'commercant',
       businessName: businessName || '',
-      address: address || '',
+      address: formattedAddress,
       phoneNumber: phoneNumber || '',
-
     });
 
     if (merchant) {

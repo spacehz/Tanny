@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import Modal from './Modal';
+import { toast } from 'react-hot-toast';
 
 const RegisterModal = ({ isOpen, onClose }) => {
   const [step, setStep] = useState(1);
@@ -224,6 +225,8 @@ const RegisterModal = ({ isOpen, onClose }) => {
             email: formData.email,
             phoneNumber: formData.phoneNumber,
             siret: formData.siret,
+            password: formData.password, // Ajout du mot de passe
+            role: 'commercant', // Ajout explicite du rôle commercant
             address: {
               street: formData.merchantAddress.street,
               city: formData.merchantAddress.city,
@@ -254,21 +257,49 @@ const RegisterModal = ({ isOpen, onClose }) => {
         // Utiliser le service d'authentification normal
         const success = await register(userData);
         
-        // Afficher un message de succès
-        alert('Inscription réussie ! Vous allez être redirigé.');
-        
         // Fermer le modal
         onClose();
         
-        // Redirection avec un léger délai pour permettre au modal de se fermer complètement
+        // Afficher une notification élégante de succès avec un style personnalisé
+        toast.custom(
+          (t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-black ring-opacity-5`}>
+              <div className="flex-1 w-0 p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-0.5">
+                    <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                      <svg className="h-6 w-6 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      Inscription réussie !
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Bienvenue sur TANY. Vous pouvez maintenant vous connecter.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex border-l border-gray-200">
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-sm font-medium text-primary-600 hover:text-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  Fermer
+                </button>
+              </div>
+            </div>
+          ),
+          { duration: 6000 }
+        );
+        
+        // Redirection vers la page d'accueil avec un léger délai pour permettre au modal de se fermer complètement
         setTimeout(() => {
-          // Redirection selon le type d'utilisateur
-          if (userType === 'merchant') {
-            router.push('/merchant');
-          } else {
-            router.push('/volunteer');
-          }
-        }, 500);
+          router.push('/');
+        }, 1000);
       } catch (err) {
         console.error('Erreur d\'inscription:', err);
         
@@ -284,6 +315,34 @@ const RegisterModal = ({ isOpen, onClose }) => {
         // Si l'erreur indique que l'utilisateur existe déjà, afficher un message plus convivial
         if (errorMessage.includes('existe déjà')) {
           errorMessage = 'Un compte avec cet email existe déjà. Veuillez vous connecter ou utiliser un autre email.';
+          
+          // Afficher une notification toast pour suggérer de se connecter
+          toast.error(
+            'Un compte avec cet email existe déjà. Veuillez vous connecter.',
+            {
+              duration: 5000,
+              position: 'top-center',
+              style: {
+                borderRadius: '10px',
+                background: '#fff',
+                color: '#333',
+              },
+            }
+          );
+        } else {
+          // Pour les autres erreurs, afficher une notification toast
+          toast.error(
+            errorMessage,
+            {
+              duration: 5000,
+              position: 'top-center',
+              style: {
+                borderRadius: '10px',
+                background: '#fff',
+                color: '#333',
+              },
+            }
+          );
         }
         
         setErrors({ submit: errorMessage });

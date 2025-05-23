@@ -9,13 +9,14 @@ export const register = async (userData) => {
     // Si c'est un commerçant, utiliser l'API des commerçants
     if (userData.role === 'commercant') {
       console.log('Détecté comme commerçant, préparation des données');
-      // Créer d'abord le commerçant dans la base de données
+      // Créer le commerçant dans la base de données
       const merchantData = {
         businessName: userData.businessName,
         legalRepresentative: userData.legalRepresentative,
         email: userData.email,
         phoneNumber: userData.phoneNumber,
         siret: userData.siret,
+        password: userData.password, // Ajout du mot de passe
         address: userData.address
       };
       
@@ -25,48 +26,29 @@ export const register = async (userData) => {
         const csrfResponse = await api.get('/api/csrf-token', { withCredentials: true });
         const csrfToken = csrfResponse.data.csrfToken;
         
-        response = await api.post('/api/merchants', merchantData, {
+        response = await api.post('/api/merchants/auth/register', merchantData, {
           withCredentials: true,
           headers: { 'X-CSRF-Token': csrfToken }
         });
         console.log('Réponse API merchants:', response);
+        
+        // Si le commerçant est créé avec succès, stocker les informations dans localStorage
+        if (response.data) {
+          console.log('Commerçant créé avec succès');
+          // Créer un objet utilisateur à partir des données du commerçant
+          const userInfo = {
+            _id: response.data._id,
+            name: response.data.businessName,
+            email: response.data.email,
+            role: 'commercant',
+            businessName: response.data.businessName
+          };
+          localStorage.setItem('userInfo', JSON.stringify(userInfo));
+        }
       } catch (merchantError) {
         console.error('Erreur lors de la création du commerçant:', merchantError);
         console.error('Détails:', merchantError.response?.data);
         throw merchantError;
-      }
-      
-      // Après avoir créé le commerçant, créer un compte utilisateur associé
-      if (response.data) {
-        console.log('Commerçant créé avec succès, création du compte utilisateur');
-        
-        const userAccountData = {
-          name: userData.name || userData.businessName, // Utiliser le nom si fourni, sinon le nom commercial
-          email: userData.email,
-          password: userData.password,
-          role: 'commercant',
-          businessName: userData.businessName // Pour lier l'utilisateur au commerçant
-        };
-        
-        console.log('Données utilisateur pour le commerçant:', userAccountData);
-        
-        try {
-          // Créer un compte utilisateur lié au commerçant
-          const userResponse = await api.post('/api/users/register', userAccountData, {
-            withCredentials: true
-          });
-          console.log('Réponse API users/register:', userResponse);
-          
-          if (userResponse.data && userResponse.data.user) {
-            console.log('Compte utilisateur créé avec succès');
-            localStorage.setItem('userInfo', JSON.stringify(userResponse.data.user));
-            return userResponse.data;
-          }
-        } catch (userError) {
-          console.error('Erreur lors de la création du compte utilisateur:', userError);
-          console.error('Détails:', userError.response?.data);
-          throw userError;
-        }
       }
     } else {
       // Si c'est un bénévole, utiliser l'API des utilisateurs
@@ -102,7 +84,17 @@ export const register = async (userData) => {
 // Fonction pour se connecter
 export const login = async (email, password) => {
   try {
-    // Configurer axios pour envoyer les cookies avec la requête
+    // Vérifier si c'est un commerçant (email spécifique pour le test)
+    if (email === 'boulangerie@tany.org' || email.includes('@commercant.') || email.includes('@merchant.')) {
+      console.log('Tentative de connexion en tant que commerçant');
+      // Utiliser la route d'authentification des commerçants
+      const response = await api.post('/api/merchants/auth/login', { email, password }, {
+        withCredentials: true // Important pour que les cookies soient acceptés
+      });
+      return response.data;
+    }
+    
+    // Sinon, utiliser la route d'authentification des utilisateurs
     const response = await api.post('/api/users/login', { email, password }, {
       withCredentials: true // Important pour que les cookies soient acceptés
     });

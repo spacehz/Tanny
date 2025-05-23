@@ -3,7 +3,7 @@ const asyncHandler = require('express-async-handler');
 
 // @desc    Créer un nouveau commerçant
 // @route   POST /api/merchants
-// @access  Private/Admin
+// @access  Public
 const createMerchant = asyncHandler(async (req, res) => {
   const {
     businessName,
