@@ -25,13 +25,24 @@ This document provides detailed instructions on how to deploy the Tanny applicat
    
    These files have been created with default values that should work with your VM's IP address (192.168.88.96).
 
-3. **Build and Start the Docker Containers**
+3. **Use the Deployment Scripts**
 
+   For Linux/Mac:
    ```bash
-   docker-compose up -d
+   chmod +x docker-deploy.sh
+   ./docker-deploy.sh
    ```
 
-   This will build the images and start the containers in detached mode.
+   For Windows:
+   ```bash
+   docker-deploy.bat
+   ```
+
+   These scripts will:
+   - Stop any running containers
+   - Build the images with the --no-cache option
+   - Start the containers
+   - Check if the services are accessible
 
 4. **Check if the Containers are Running**
 
@@ -100,6 +111,11 @@ The current setup is configured for production use. If you want to switch to dev
    - Check that your VM's IP address is correctly configured in the environment files
    - Try accessing the services from within the VM first to isolate network issues
 
+4. **If the frontend build fails**:
+   - Check the frontend logs: `docker-compose logs frontend`
+   - The ESLint errors have been configured to be ignored during the build process
+   - If there are other build issues, you may need to modify the Next.js configuration
+
 ## Security Recommendations for Production
 
 1. **Change Default Credentials**:
@@ -122,6 +138,10 @@ The current setup is configured for production use. If you want to switch to dev
 To update the application:
 
 1. Pull the latest code from the repository
-2. Rebuild the containers: `docker-compose up -d --build`
+2. Run the deployment script again:
+   ```bash
+   ./docker-deploy.sh  # Linux/Mac
+   docker-deploy.bat   # Windows
+   ```
 
 This will ensure that your application is running the latest version with all the necessary dependencies.

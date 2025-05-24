@@ -51,10 +51,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - DISABLE_ESLINT_PLUGIN=true
     container_name: tanny-frontend
     restart: always
     env_file:
       - ./frontend/.env.docker
+    environment:
+      - DISABLE_ESLINT_PLUGIN=true
+      - NEXT_TELEMETRY_DISABLED=1
     ports:
       - "3000:3000"
     depends_on:

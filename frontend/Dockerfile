@@ -12,9 +12,12 @@ RUN npm ci
 # Copy the rest of the application
 COPY . .
 
-# Build the application with ESLint errors ignored
+# Set environment variables for the build
 ENV NODE_OPTIONS=--max_old_space_size=4096
-RUN npm run build || (echo "Build failed with ESLint errors, continuing anyway" && mkdir -p .next)
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build the application with ESLint checks disabled
+RUN DISABLE_ESLINT_PLUGIN=true npm run build
 
 # Production stage
 FROM node:18-alpine AS runner

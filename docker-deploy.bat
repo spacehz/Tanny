@@ -21,7 +21,7 @@ docker-compose down
 
 REM Build the images
 echo Building Docker images...
-docker-compose build
+docker-compose build --no-cache
 
 REM Start the containers
 echo Starting containers...
@@ -30,6 +30,26 @@ docker-compose up -d
 REM Check if containers are running
 echo Checking container status...
 docker-compose ps
+
+REM Wait for services to be fully up
+echo Waiting for services to start up...
+timeout /t 10 /nobreak > nul
+
+REM Check if backend is accessible
+echo Checking if backend is accessible...
+curl -s http://localhost:5000 > nul
+if %ERRORLEVEL% equ 0 (
+    echo ✅ Backend is accessible locally
+) else (
+    echo ❌ Backend is not accessible locally. Check logs with: docker-compose logs backend
+)
+
+curl -s http://192.168.88.96:5000 > nul
+if %ERRORLEVEL% equ 0 (
+    echo ✅ Backend is accessible from VM IP
+) else (
+    echo ❌ Backend is not accessible from VM IP. Check network configuration.
+)
 
 echo.
 echo Deployment completed!
