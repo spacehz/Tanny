@@ -14,7 +14,7 @@ Cette application mobile est conçue pour les bénévoles de TANY, leur permetta
 
 L'application utilise le même backend que la version web, accessible via l'URL ngrok configurée :
 ```
-https://e4ef-197-14-53-186.ngrok-free.app
+https://7d24-197-14-53-186.ngrok-free.app
 ```
 
 ## Installation et démarrage
