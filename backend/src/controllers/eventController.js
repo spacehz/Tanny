@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const User = require('../models/User');
 
@@ -417,21 +418,99 @@ const deleteEvent = async (req, res) => {
       });
     }
 
+    // Fonction pour nettoyer les références à un événement dans d'autres collections
+    const cleanupEventReferences = async (eventId) => {
+      try {
+        console.log(`Nettoyage des références pour l'événement ${eventId}`);
+        
+        // Supprimer les affectations liées à cet événement
+        if (mongoose.models.Assignment) {
+          const assignmentsDeleted = await mongoose.models.Assignment.deleteMany({ event: eventId });
+          console.log(`${assignmentsDeleted.deletedCount} affectations supprimées`);
+        }
+        
+        // Supprimer les participations liées à cet événement
+        if (mongoose.models.Participation) {
+          const participationsDeleted = await mongoose.models.Participation.deleteMany({ event: eventId });
+          console.log(`${participationsDeleted.deletedCount} participations supprimées`);
+        }
+        
+        // Mettre à jour les donations liées à cet événement
+        if (mongoose.models.Donation) {
+          const donationsUpdated = await mongoose.models.Donation.updateMany(
+            { event: eventId },
+            { $unset: { event: "" } }
+          );
+          console.log(`${donationsUpdated.modifiedCount} donations mises à jour`);
+        }
+      } catch (error) {
+        console.error(`Erreur lors du nettoyage des références pour l'événement ${eventId}:`, error);
+        // Ne pas propager l'erreur pour permettre la suppression de l'événement
+      }
+    };
+
     // Si c'est un événement parent récurrent et que l'utilisateur veut supprimer toutes les occurrences
     if (event.isRecurring && deleteRecurringEvents === 'all') {
+      // Récupérer toutes les occurrences pour nettoyer leurs références
+      const childEvents = await Event.find({ parentEventId: event._id });
+      
+      // Nettoyer les références pour chaque occurrence
+      for (const childEvent of childEvents) {
+        await cleanupEventReferences(childEvent._id);
+      }
+      
       // Supprimer toutes les occurrences
       await Event.deleteMany({ parentEventId: event._id });
+      
+      // Nettoyer les références de l'événement parent
+      await cleanupEventReferences(event._id);
+      
+      // Supprimer l'événement parent
+      await Event.findByIdAndDelete(event._id);
     }
     // Si c'est un événement parent récurrent et que l'utilisateur veut supprimer les occurrences futures
     else if (event.isRecurring && deleteRecurringEvents === 'future') {
-      // Supprimer les occurrences futures
-      await Event.deleteMany({
+      // Récupérer les occurrences futures
+      const futureEvents = await Event.find({
         parentEventId: event._id,
         start: { $gte: new Date() }
       });
+      
+      // Nettoyer les références pour chaque occurrence future
+      for (const futureEvent of futureEvents) {
+        await cleanupEventReferences(futureEvent._id);
+      }
+      
+      // Supprimer les occurrences futures
+      await Event.deleteMany({
+        parentEventId: event._id,
+        start: { $gte: new Date() },
+      });
+      
+      // Nettoyer les références de l'événement parent
+      await cleanupEventReferences(event._id);
+      
+      // Supprimer l'événement parent
+      await Event.findByIdAndDelete(event._id);
     }
     // Si c'est une occurrence et que l'utilisateur veut supprimer toutes les occurrences
     else if (event.parentEventId && deleteRecurringEvents === 'all') {
+      // Récupérer l'événement parent
+      const parentEvent = await Event.findById(event.parentEventId);
+      
+      // Récupérer toutes les occurrences
+      const allEvents = await Event.find({ parentEventId: event.parentEventId });
+      
+      // Nettoyer les références pour l'événement parent
+      if (parentEvent) {
+        await cleanupEventReferences(parentEvent._id);
+      }
+      
+      // Nettoyer les références pour chaque occurrence
+      for (const childEvent of allEvents) {
+        await cleanupEventReferences(childEvent._id);
+      }
+      
       // Supprimer l'événement parent et toutes ses occurrences
       await Event.deleteMany({ 
         $or: [
@@ -440,7 +519,6 @@ const deleteEvent = async (req, res) => {
         ]
       });
       
-      // Pas besoin de supprimer l'événement actuel car il est inclus dans la requête ci-dessus
       return res.status(200).json({
         success: true,
         message: 'Série d\'événements supprimée avec succès',
@@ -448,13 +526,23 @@ const deleteEvent = async (req, res) => {
     }
     // Si c'est une occurrence et que l'utilisateur veut supprimer les occurrences futures
     else if (event.parentEventId && deleteRecurringEvents === 'future') {
+      // Récupérer les occurrences futures
+      const futureEvents = await Event.find({
+        parentEventId: event.parentEventId,
+        start: { $gte: event.start }
+      });
+      
+      // Nettoyer les références pour chaque occurrence future
+      for (const futureEvent of futureEvents) {
+        await cleanupEventReferences(futureEvent._id);
+      }
+      
       // Supprimer les occurrences futures y compris celle-ci
       await Event.deleteMany({
         parentEventId: event.parentEventId,
         start: { $gte: event.start }
       });
       
-      // Pas besoin de supprimer l'événement actuel car il est inclus dans la requête ci-dessus
       return res.status(200).json({
         success: true,
         message: 'Occurrences futures supprimées avec succès',
@@ -462,7 +550,11 @@ const deleteEvent = async (req, res) => {
     }
     // Sinon, supprimer uniquement cet événement
     else {
-      await event.remove();
+      // Nettoyer les références pour cet événement
+      await cleanupEventReferences(event._id);
+      
+      // Supprimer l'événement
+      await Event.findByIdAndDelete(req.params.id);
     }
 
     res.status(200).json({
@@ -474,6 +566,7 @@ const deleteEvent = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erreur serveur',
+      error: error.message,
     });
   }
 };

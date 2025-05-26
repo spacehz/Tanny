@@ -153,7 +153,8 @@ exports.deleteProduct = async (req, res) => {
       return res.status(403).json({ message: 'Non autorisé' });
     }
 
-    await product.remove();
+    // Utiliser findByIdAndDelete au lieu de remove() qui est obsolète
+    await Product.findByIdAndDelete(req.params.id);
     res.json({ message: 'Produit supprimé' });
   } catch (error) {
     console.error(error);
