@@ -248,14 +248,14 @@ const EventsTable = ({
                 return (
                   <tr key={event._id}>
                     <td className="px-4 py-4">
-                      <div className="text-sm font-medium text-gray-900 truncate">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800 hover:underline focus:outline-none"
-                          onClick={() => onShowDetails(event)}
-                          title={event.title}
-                        >
-                          {event.title}
-                        </button>
+                      <div 
+                        className="text-sm font-medium truncate"
+                        style={{ 
+                          color: event.type?.toLowerCase() === 'marché' ? '#3b82f6' : '#16a34a' 
+                        }}
+                        title={event.title}
+                      >
+                        {event.title}
                       </div>
                     </td>
                     <td className="px-4 py-4">
@@ -303,6 +303,12 @@ const EventsTable = ({
                           onClick={() => onDelete(event._id)}
                         >
                           Supprimer
+                        </button>
+                        <button 
+                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded"
+                          onClick={() => onShowDetails(event)}
+                        >
+                          Affectation
                         </button>
                       </div>
                     </td>
