@@ -7,6 +7,10 @@ const {
   deleteEvent,
   registerForEvent,
   unregisterFromEvent,
+  changeEventStatus,
+  checkEventStatus,
+  getEventsToComplete,
+  updateAllEventStatuses
 } = require('../controllers/eventController');
 const {
   getEventAssignments,
@@ -38,5 +42,11 @@ router.post('/:id/assignments', protect, admin, saveEventAssignments);
 router.get('/:id/volunteers', protect, admin, getEventVolunteers);
 router.get('/:id/merchants', protect, admin, getEventMerchants);
 router.get('/:id/donations', protect, admin, getEventDonations);
+
+// Routes pour la gestion des statuts d'événements
+router.put('/:id/status', protect, admin, changeEventStatus);
+router.get('/:id/check-status', protect, admin, checkEventStatus);
+router.get('/suggest-to-complete', protect, admin, getEventsToComplete);
+router.get('/update-all-statuses', protect, admin, updateAllEventStatuses);
 
 module.exports = router;

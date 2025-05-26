@@ -10,6 +10,8 @@ import {
   getEventVolunteers, 
   getEventMerchants 
 } from '../services/assignmentService';
+import EventStatusBadge from './EventStatusBadge';
+import EventStatusChanger from './EventStatusChanger';
 
 const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSave }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +23,7 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
   const [donationMerchants, setDonationMerchants] = useState([]);
   const [selectedDonationMerchant, setSelectedDonationMerchant] = useState('');
   const [selectedVolunteers, setSelectedVolunteers] = useState([]);
+  const [eventStatus, setEventStatus] = useState('');
 
   // Charger les données des commerçants et des bénévoles lorsque le modal s'ouvre
   useEffect(() => {
@@ -35,6 +38,9 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
       } else {
         setSelectedMerchants([]);
       }
+      
+      // Initialiser le statut de l'événement
+      setEventStatus(event.status || 'incomplet');
     }
   }, [isOpen, event]);
 
@@ -471,7 +477,10 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
       <div className="space-y-6">
         {/* Informations de l'événement */}
         <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Informations générales</h3>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-medium text-gray-900">Informations générales</h3>
+            <EventStatusBadge status={event.status} />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500">Date de début</p>
@@ -556,6 +565,17 @@ const EventVolunteerAssignmentModal = ({ isOpen, onClose, event, onAssignmentSav
                 </div>
               </div>
             </div>
+            
+            {/* Gestion du statut de l'événement */}
+            <EventStatusChanger 
+              event={event} 
+              onStatusChange={(newStatus) => {
+                setEventStatus(newStatus);
+                // Mettre à jour l'événement localement
+                event.status = newStatus;
+              }}
+              className="mt-6"
+            />
             
             {/* Sélection des commerçants ayant fait des donations */}
             <div className="bg-gray-50 p-4 rounded-lg mt-6">

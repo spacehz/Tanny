@@ -11,6 +11,7 @@ const merchantRoutes = require('./routes/merchantRoutes');
 const merchantAuthRoutes = require('./routes/merchantAuthRoutes');
 const donationRoutes = require('./routes/donationRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
+const { scheduleEventStatusUpdates } = require('./cron/eventStatusCron');
 
 // Chargement des variables d'environnement
 dotenv.config();
@@ -68,4 +69,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Serveur en cours d'exécution sur le port ${PORT}`);
+  
+  // Démarrer la tâche planifiée pour la mise à jour des statuts d'événements
+  scheduleEventStatusUpdates();
 });

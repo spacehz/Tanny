@@ -16,6 +16,7 @@ export default function CollectionModal({
     start: '',
     end: '',
     type: 'collecte',
+    status: 'incomplet', // Statut par défaut
     description: '',
     location: '',
     volunteers: [],
@@ -600,6 +601,36 @@ export default function CollectionModal({
           {/* Onglet Détails */}
           {activeTab === 'details' && (
             <div className="space-y-4">
+              {/* Statut de l'événement */}
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-medium mb-2" htmlFor="status">
+                  Statut
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <select
+                    id="status"
+                    name="status"
+                    value={formData.status || 'incomplet'}
+                    onChange={handleChange}
+                    className="pl-10 shadow-sm border border-gray-300 rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                  >
+                    <option value="incomplet">Incomplet</option>
+                    <option value="pret">Prêt</option>
+                    <option value="en_cours">En cours</option>
+                    <option value="annule">Annulé</option>
+                    <option value="termine">Terminé</option>
+                  </select>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Le statut sera automatiquement mis à jour en fonction des inscriptions et des dates.
+                </p>
+              </div>
+              
               {/* Lieu (déplacé dans la section détails) */}
               <div className="mb-4">
                 <label className="block text-gray-700 text-sm font-medium mb-2" htmlFor="location">

@@ -4,6 +4,7 @@ import api, { checkBackendAvailability } from './api';
  * Récupère tous les événements
  * @param {Object} options - Options de filtrage et pagination
  * @param {string} options.type - Type d'événement à filtrer (optionnel)
+ * @param {string} options.status - Statut d'événement à filtrer (optionnel)
  * @param {number} options.page - Numéro de page (optionnel)
  * @param {number} options.limit - Nombre d'éléments par page (optionnel)
  * @returns {Promise} Promesse contenant les données des événements
@@ -20,10 +21,11 @@ export const getEvents = async (options = {}) => {
     }
     
     // Construire les paramètres de requête
-    const { type, page, limit, startDate, endDate, location } = options;
+    const { type, status, page, limit, startDate, endDate, location } = options;
     let queryParams = [];
     
     if (type) queryParams.push(`type=${encodeURIComponent(type)}`);
+    if (status) queryParams.push(`status=${encodeURIComponent(status)}`);
     if (page) queryParams.push(`page=${page}`);
     if (limit) queryParams.push(`limit=${limit}`);
     if (startDate) queryParams.push(`startDate=${encodeURIComponent(startDate)}`);
@@ -158,6 +160,66 @@ export const deleteEvent = async (id) => {
       // Une erreur s'est produite lors de la configuration de la requête
       console.error('Erreur de configuration:', error.message);
     }
+    throw error;
+  }
+};
+
+/**
+ * Change le statut d'un événement
+ * @param {string} id - ID de l'événement
+ * @param {string} status - Nouveau statut ('incomplet', 'pret', 'en_cours', 'annule', 'termine')
+ * @param {string} reason - Raison du changement de statut (optionnel)
+ * @returns {Promise} Promesse contenant les données de l'événement mis à jour
+ */
+export const changeEventStatus = async (id, status, reason = '') => {
+  try {
+    const response = await api.put(`/api/events/${id}/status`, { status, reason });
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur lors du changement de statut de l'événement ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Vérifie et met à jour automatiquement le statut d'un événement
+ * @param {string} id - ID de l'événement
+ * @returns {Promise} Promesse contenant les données de l'événement mis à jour
+ */
+export const checkEventStatus = async (id) => {
+  try {
+    const response = await api.get(`/api/events/${id}/check-status`);
+    return response.data;
+  } catch (error) {
+    console.error(`Erreur lors de la vérification du statut de l'événement ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Récupère les événements qui pourraient être marqués comme terminés
+ * @returns {Promise} Promesse contenant la liste des événements
+ */
+export const getEventsToComplete = async () => {
+  try {
+    const response = await api.get('/api/events/suggest-to-complete');
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de la récupération des événements à terminer:', error);
+    throw error;
+  }
+};
+
+/**
+ * Met à jour le statut de tous les événements actifs
+ * @returns {Promise} Promesse contenant le nombre d'événements mis à jour
+ */
+export const updateAllEventStatuses = async () => {
+  try {
+    const response = await api.get('/api/events/update-all-statuses');
+    return response.data;
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des statuts des événements:', error);
     throw error;
   }
 };

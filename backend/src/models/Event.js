@@ -21,6 +21,30 @@ const eventSchema = new mongoose.Schema(
       enum: ['collecte', 'marché', 'réunion', 'formation'],
       default: 'collecte',
     },
+    status: {
+      type: String,
+      enum: ['incomplet', 'pret', 'en_cours', 'annule', 'termine'],
+      default: 'incomplet',
+    },
+    statusHistory: [{
+      status: {
+        type: String,
+        enum: ['incomplet', 'pret', 'en_cours', 'annule', 'termine'],
+        required: true
+      },
+      changedAt: {
+        type: Date,
+        default: Date.now
+      },
+      changedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      reason: {
+        type: String,
+        trim: true
+      }
+    }],
     description: {
       type: String,
       trim: true,

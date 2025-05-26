@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getEvents, registerForEvent, unregisterFromEvent } from '../services/eventService';
+import { 
+  getEvents, 
+  registerForEvent, 
+  unregisterFromEvent,
+  changeEventStatus,
+  checkEventStatus,
+  getEventsToComplete,
+  updateAllEventStatuses
+} from '../services/eventService';
 import { checkBackendAvailability } from '../services/api';
 
 // Clé pour le cache des événements
@@ -9,6 +17,7 @@ const EVENTS_CACHE_KEY = 'events_cache';
 // Interface pour les options de filtrage des événements
 interface EventOptions {
   type?: string;
+  status?: string;
   page?: number;
   limit?: number;
   startDate?: string;
@@ -158,6 +167,34 @@ export const useEvents = (options: EventOptions = {}) => {
       .sort((a: any, b: any) => new Date(a.start).getTime() - new Date(b.start).getTime());
   };
 
+  // Mutation pour changer le statut d'un événement
+  const changeStatusMutation = useMutation({
+    mutationFn: ({ eventId, status, reason }: { eventId: string, status: string, reason?: string }) => 
+      changeEventStatus(eventId, status, reason),
+    onSuccess: () => {
+      // Invalider la requête des événements pour forcer un rafraîchissement
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+
+  // Mutation pour vérifier et mettre à jour le statut d'un événement
+  const checkStatusMutation = useMutation({
+    mutationFn: (eventId: string) => checkEventStatus(eventId),
+    onSuccess: () => {
+      // Invalider la requête des événements pour forcer un rafraîchissement
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+
+  // Mutation pour mettre à jour tous les statuts d'événements
+  const updateAllStatusesMutation = useMutation({
+    mutationFn: () => updateAllEventStatuses(),
+    onSuccess: () => {
+      // Invalider la requête des événements pour forcer un rafraîchissement
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+    },
+  });
+
   return {
     events: eventsQuery.data || [],
     isLoading: eventsQuery.isLoading,
@@ -170,5 +207,13 @@ export const useEvents = (options: EventOptions = {}) => {
     unregisterFromEvent: unregisterMutation.mutate,
     isRegistering: registerMutation.isPending,
     isUnregistering: unregisterMutation.isPending,
+    
+    // Nouvelles fonctions pour la gestion des statuts
+    changeEventStatus: changeStatusMutation.mutate,
+    checkEventStatus: checkStatusMutation.mutate,
+    updateAllEventStatuses: updateAllStatusesMutation.mutate,
+    isChangingStatus: changeStatusMutation.isPending,
+    isCheckingStatus: checkStatusMutation.isPending,
+    isUpdatingAllStatuses: updateAllStatusesMutation.isPending,
   };
 };

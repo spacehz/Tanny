@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const User = require('../models/User');
+const eventStatusService = require('../services/eventStatusService');
+const Merchant = require('../models/Merchant');
 
 /**
  * Fonction utilitaire pour générer les événements récurrents
@@ -186,7 +188,35 @@ const createEvent = async (req, res) => {
  */
 const getEvents = async (req, res) => {
   try {
-    const events = await Event.find()
+    // Construire le filtre en fonction des paramètres de requête
+    const filter = {};
+    
+    // Filtrer par type si spécifié
+    if (req.query.type) {
+      filter.type = req.query.type;
+    }
+    
+    // Filtrer par statut si spécifié
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+    
+    // Filtrer par date de début si spécifiée
+    if (req.query.startDate) {
+      filter.start = { $gte: new Date(req.query.startDate) };
+    }
+    
+    // Filtrer par date de fin si spécifiée
+    if (req.query.endDate) {
+      filter.end = { $lte: new Date(req.query.endDate) };
+    }
+    
+    // Filtrer par lieu si spécifié
+    if (req.query.location) {
+      filter.location = { $regex: req.query.location, $options: 'i' };
+    }
+    
+    const events = await Event.find(filter)
       .populate('merchants', 'businessName email')
       .populate('volunteers', 'name email');
 
@@ -620,6 +650,15 @@ const registerForEvent = async (req, res) => {
     console.log(`[DEBUG] Nombre de bénévoles après ajout: ${event.volunteers.length}`);
     
     await event.save();
+    
+    // Vérifier et mettre à jour le statut de l'événement
+    try {
+      await eventStatusService.checkAndUpdateEventStatus(event._id);
+      console.log(`[DEBUG] Statut de l'événement vérifié et mis à jour si nécessaire`);
+    } catch (statusError) {
+      console.error(`[ERROR] Erreur lors de la vérification du statut de l'événement:`, statusError);
+      // Ne pas bloquer l'inscription si la mise à jour du statut échoue
+    }
     console.log(`[DEBUG] Événement sauvegardé avec succès`);
 
     // Récupérer l'événement mis à jour avec les informations des bénévoles
@@ -670,6 +709,15 @@ const unregisterFromEvent = async (req, res) => {
       (volunteerId) => volunteerId.toString() !== req.user._id.toString()
     );
     await event.save();
+    
+    // Vérifier et mettre à jour le statut de l'événement
+    try {
+      await eventStatusService.checkAndUpdateEventStatus(event._id);
+      console.log(`[DEBUG] Statut de l'événement vérifié et mis à jour si nécessaire après désinscription`);
+    } catch (statusError) {
+      console.error(`[ERROR] Erreur lors de la vérification du statut de l'événement après désinscription:`, statusError);
+      // Ne pas bloquer la désinscription si la mise à jour du statut échoue
+    }
 
     // Récupérer l'événement mis à jour avec les informations des bénévoles
     const updatedEvent = await Event.findById(req.params.id)
@@ -697,4 +745,115 @@ module.exports = {
   deleteEvent,
   registerForEvent,
   unregisterFromEvent,
+  
+  // Nouvelles fonctions pour la gestion des statuts
+  changeEventStatus: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, reason } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({
+          success: false,
+          message: 'Le statut est requis'
+        });
+      }
+      
+      // Vérifier que l'ID est valide
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID d\'événement invalide'
+        });
+      }
+      
+      // Utiliser le service pour changer le statut
+      const updatedEvent = await eventStatusService.changeEventStatus(
+        id,
+        status,
+        req.user._id, // ID de l'utilisateur connecté
+        reason || ''
+      );
+      
+      res.status(200).json({
+        success: true,
+        message: `Statut de l'événement mis à jour avec succès à "${status}"`,
+        data: updatedEvent
+      });
+    } catch (error) {
+      console.error('Erreur lors du changement de statut de l\'événement:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Erreur lors du changement de statut de l\'événement'
+      });
+    }
+  },
+  
+  checkEventStatus: async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Vérifier que l'ID est valide
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID d\'événement invalide'
+        });
+      }
+      
+      // Utiliser le service pour vérifier et mettre à jour le statut
+      const updatedEvent = await eventStatusService.checkAndUpdateEventStatus(
+        id,
+        req.user._id // ID de l'utilisateur connecté
+      );
+      
+      res.status(200).json({
+        success: true,
+        message: `Statut de l'événement vérifié et mis à jour si nécessaire`,
+        data: updatedEvent
+      });
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut de l\'événement:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Erreur lors de la vérification du statut de l\'événement'
+      });
+    }
+  },
+  
+  getEventsToComplete: async (req, res) => {
+    try {
+      const events = await eventStatusService.suggestEventsToComplete();
+      
+      res.status(200).json({
+        success: true,
+        count: events.length,
+        data: events
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération des événements à terminer:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Erreur lors de la récupération des événements à terminer'
+      });
+    }
+  },
+  
+  updateAllEventStatuses: async (req, res) => {
+    try {
+      const updatedCount = await eventStatusService.updateAllEventStatuses();
+      
+      res.status(200).json({
+        success: true,
+        message: `${updatedCount} événements ont été mis à jour`,
+        updatedCount
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des statuts des événements:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Erreur lors de la mise à jour des statuts des événements'
+      });
+    }
+  },
 };

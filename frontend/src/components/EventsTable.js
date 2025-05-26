@@ -15,6 +15,7 @@ const EventsTable = ({
   const [filters, setFilters] = useState({
     title: '',
     type: '',
+    status: '',
     location: '',
     startDate: '',
     endDate: ''
@@ -46,6 +47,13 @@ const EventsTable = ({
     if (filters.type) {
       result = result.filter(event => 
         event.type.toLowerCase() === filters.type.toLowerCase()
+      );
+    }
+    
+    // Filtre par statut
+    if (filters.status) {
+      result = result.filter(event => 
+        event.status === filters.status
       );
     }
     
@@ -115,6 +123,7 @@ const EventsTable = ({
     setFilters({
       title: '',
       type: '',
+      status: '',
       location: '',
       startDate: '',
       endDate: ''
@@ -132,7 +141,7 @@ const EventsTable = ({
       <h2 className="text-xl font-bold mb-4">Liste des événements</h2>
       
       {/* Filtres */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-6 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Titre</label>
           <input
@@ -155,6 +164,22 @@ const EventsTable = ({
             <option value="">Tous</option>
             <option value="collecte">Collecte</option>
             <option value="marché">Marché</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+          <select
+            name="status"
+            value={filters.status}
+            onChange={handleFilterChange}
+            className="w-full p-2 border border-gray-300 rounded-md"
+          >
+            <option value="">Tous</option>
+            <option value="incomplet">Incomplet</option>
+            <option value="pret">Prêt</option>
+            <option value="en_cours">En cours</option>
+            <option value="annule">Annulé</option>
+            <option value="termine">Terminé</option>
           </select>
         </div>
         <div>
@@ -217,6 +242,9 @@ const EventsTable = ({
               <th scope="col" className="w-1/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Type
               </th>
+              <th scope="col" className="w-1/12 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Statut
+              </th>
               <th scope="col" className="w-1/8 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Lieu
               </th>
@@ -274,6 +302,50 @@ const EventsTable = ({
                       >
                         {eventType}
                       </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      {(() => {
+                        // Déterminer le style du statut
+                        let statusText = event.status || "incomplet";
+                        let statusColor = "#6b7280"; // Gris par défaut
+                        
+                        switch(statusText) {
+                          case "incomplet":
+                            statusColor = "#f59e0b"; // Ambre
+                            statusText = "Incomplet";
+                            break;
+                          case "pret":
+                            statusColor = "#10b981"; // Vert émeraude
+                            statusText = "Prêt";
+                            break;
+                          case "en_cours":
+                            statusColor = "#3b82f6"; // Bleu
+                            statusText = "En cours";
+                            break;
+                          case "annule":
+                            statusColor = "#ef4444"; // Rouge
+                            statusText = "Annulé";
+                            break;
+                          case "termine":
+                            statusColor = "#6b7280"; // Gris
+                            statusText = "Terminé";
+                            break;
+                          default:
+                            statusText = "Incomplet";
+                        }
+                        
+                        return (
+                          <span 
+                            className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                            style={{ 
+                              backgroundColor: statusColor + '20', // Ajoute une transparence
+                              color: statusColor 
+                            }}
+                          >
+                            {statusText}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-4">
                       <div className="text-sm text-gray-500 truncate" title={event.location || "Non spécifié"}>
