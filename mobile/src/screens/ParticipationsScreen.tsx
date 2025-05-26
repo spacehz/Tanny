@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
 import { Text, Card, Button, ActivityIndicator, Divider, Chip } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../context/AuthContext';
-import { getVolunteerAssignments, startAssignment, endAssignment, updateAssignmentStatus } from '../services/assignmentService';
+import { useAssignments } from '../hooks/useAssignments';
 import { colors } from '../constants/theme';
 
 interface Assignment {
@@ -34,46 +34,31 @@ interface Assignment {
 }
 
 const ParticipationsScreen = () => {
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   
   const { user } = useAuth();
-
-  // Fonction pour charger les affectations
-  const loadAssignments = useCallback(async () => {
-    if (!user?._id) return;
-    
-    try {
-      setLoading(true);
-      const response = await getVolunteerAssignments(user._id);
-      
-      if (response && response.data && Array.isArray(response.data)) {
-        setAssignments(response.data);
-      } else {
-        console.warn('Format de données incorrect pour les affectations');
-        setAssignments([]);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des affectations:', error);
-      Alert.alert('Erreur', 'Impossible de charger vos participations');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user]);
-
-  // Charger les affectations au montage du composant
-  useEffect(() => {
-    loadAssignments();
-  }, [loadAssignments]);
+  
+  // Utiliser le hook personnalisé pour les affectations
+  const { 
+    assignments, 
+    isLoading, 
+    isError, 
+    refetch, 
+    startAssignment: startAssignmentMutation,
+    endAssignment: endAssignmentMutation,
+    updateAssignmentStatus: updateStatusMutation,
+    isStarting,
+    isEnding,
+    isUpdating,
+    stats
+  } = useAssignments(user?._id || '');
 
   // Fonction pour rafraîchir les affectations
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadAssignments();
-  }, [loadAssignments]);
+    refetch().finally(() => setRefreshing(false));
+  }, [refetch]);
 
   // Fonction pour formater la date
   const formatDate = (dateString: string | undefined) => {
@@ -106,9 +91,8 @@ const ParticipationsScreen = () => {
   const handleStartAssignment = async (id: string) => {
     try {
       setActionLoading(id);
-      await startAssignment(id);
+      await startAssignmentMutation(id);
       Alert.alert('Succès', 'Affectation démarrée !');
-      loadAssignments();
     } catch (error) {
       console.error('Erreur lors du démarrage de l\'affectation:', error);
       Alert.alert('Erreur', 'Une erreur est survenue lors du démarrage de l\'affectation');
@@ -121,9 +105,8 @@ const ParticipationsScreen = () => {
   const handleEndAssignment = async (id: string) => {
     try {
       setActionLoading(id);
-      await endAssignment(id);
+      await endAssignmentMutation(id);
       Alert.alert('Succès', 'Affectation terminée !');
-      loadAssignments();
     } catch (error) {
       console.error('Erreur lors de la fin de l\'affectation:', error);
       Alert.alert('Erreur', 'Une erreur est survenue lors de la fin de l\'affectation');
@@ -136,9 +119,8 @@ const ParticipationsScreen = () => {
   const markAssignmentAsCompleted = async (id: string) => {
     try {
       setActionLoading(id);
-      await updateAssignmentStatus(id, 'completed');
+      await updateStatusMutation({ assignmentId: id, status: 'completed' });
       Alert.alert('Succès', 'Affectation marquée comme terminée !');
-      loadAssignments();
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error);
       Alert.alert('Erreur', 'Une erreur est survenue lors de la mise à jour du statut');
@@ -289,11 +271,8 @@ const ParticipationsScreen = () => {
     );
   };
 
-  // Statistiques de participation
-  const totalAssignments = assignments.length;
-  const completedAssignments = assignments.filter(a => a.status === 'completed').length;
-  const inProgressAssignments = assignments.filter(a => a.status === 'in_progress').length;
-  const pendingAssignments = assignments.filter(a => a.status === 'pending').length;
+  // Utiliser les statistiques calculées par le hook
+  const { total: totalAssignments, completed: completedAssignments, inProgress: inProgressAssignments, pending: pendingAssignments } = stats;
 
   return (
     <View style={styles.container}>
@@ -316,9 +295,16 @@ const ParticipationsScreen = () => {
       
       <Text style={styles.sectionTitle}>Mes affectations</Text>
       
-      {loading ? (
+      {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : isError ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Erreur lors du chargement des affectations</Text>
+          <Button mode="contained" onPress={onRefresh} style={{ marginTop: 10 }}>
+            Réessayer
+          </Button>
         </View>
       ) : (
         <FlatList
@@ -334,6 +320,11 @@ const ParticipationsScreen = () => {
               <Text style={styles.emptyText}>Aucune affectation trouvée</Text>
             </View>
           }
+          // Optimisations de performance
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
     </View>

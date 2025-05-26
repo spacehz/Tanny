@@ -115,11 +115,24 @@ api.interceptors.response.use(
   }
 );
 
+// Variable pour suivre l'état de la connexion
+let isOnline = true;
+let lastOnlineCheck = 0;
+const ONLINE_CHECK_INTERVAL = 60000; // 1 minute
+
 /**
  * Vérifie si le backend est disponible
+ * @param {boolean} forceCheck - Force une vérification même si une vérification récente a été effectuée
  * @returns {Promise<boolean>} true si le backend est disponible, false sinon
  */
-export const checkBackendAvailability = async () => {
+export const checkBackendAvailability = async (forceCheck = false) => {
+  const now = Date.now();
+  
+  // Si une vérification a été effectuée récemment et qu'on ne force pas la vérification, retourner l'état actuel
+  if (!forceCheck && now - lastOnlineCheck < ONLINE_CHECK_INTERVAL) {
+    return isOnline;
+  }
+  
   try {
     // Essayer de faire une requête simple au backend
     const response = await axios.get(`${api.defaults.baseURL}/api/health`, { 
@@ -127,11 +140,64 @@ export const checkBackendAvailability = async () => {
       validateStatus: status => status < 500 // Accepter tous les codes de statut sauf les 5xx
     });
     
-    // Si on obtient une réponse, le backend est disponible
-    return response.status < 500;
+    // Mettre à jour l'état de la connexion et le timestamp
+    isOnline = response.status < 500;
+    lastOnlineCheck = now;
+    
+    return isOnline;
   } catch (error) {
     console.error('Erreur lors de la vérification de disponibilité du backend:', error);
+    
+    // Mettre à jour l'état de la connexion et le timestamp
+    isOnline = false;
+    lastOnlineCheck = now;
+    
     return false;
+  }
+};
+
+/**
+ * Vérifie si l'appareil est en mode hors ligne
+ * @returns {Promise<boolean>} true si l'appareil est hors ligne, false sinon
+ */
+export const isOfflineMode = async () => {
+  return !(await checkBackendAvailability());
+};
+
+/**
+ * Enregistre une action à effectuer lorsque l'appareil sera de nouveau en ligne
+ * @param {Function} action - Fonction à exécuter
+ * @param {string} key - Clé unique pour identifier l'action
+ */
+export const queueOfflineAction = async (action: () => Promise<any>, key: string) => {
+  try {
+    // Récupérer les actions en attente
+    const queuedActionsJson = await AsyncStorage.getItem('offline_actions_queue');
+    const queuedActions = queuedActionsJson ? JSON.parse(queuedActionsJson) : {};
+    
+    // Ajouter la nouvelle action
+    queuedActions[key] = {
+      timestamp: Date.now(),
+      executed: false
+    };
+    
+    // Enregistrer la file d'attente mise à jour
+    await AsyncStorage.setItem('offline_actions_queue', JSON.stringify(queuedActions));
+    
+    console.log(`Action mise en file d'attente: ${key}`);
+    
+    // Si nous sommes en ligne, exécuter l'action immédiatement
+    if (await checkBackendAvailability()) {
+      await action();
+      
+      // Marquer l'action comme exécutée
+      queuedActions[key].executed = true;
+      await AsyncStorage.setItem('offline_actions_queue', JSON.stringify(queuedActions));
+      
+      console.log(`Action exécutée immédiatement: ${key}`);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la mise en file d\'attente de l\'action:', error);
   }
 };
 

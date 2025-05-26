@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
-import { TextInput, Button, Text, ActivityIndicator } from 'react-native-paper';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Image, KeyboardAvoidingView, Platform, ScrollView, Alert, Keyboard } from 'react-native';
+import { TextInput, Button, Text, ActivityIndicator, HelperText } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, Easing } from 'react-native-reanimated';
 
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../constants/theme';
@@ -11,12 +12,72 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [secureTextEntry, setSecureTextEntry] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   
   const { login } = useAuth();
+  
+  // Valeurs pour les animations
+  const logoScale = useSharedValue(0.8);
+  const formOpacity = useSharedValue(0);
+  
+  // Styles animés
+  const logoAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: logoScale.value }]
+    };
+  });
+  
+  const formAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: formOpacity.value
+    };
+  });
+  
+  // Démarrer les animations au chargement
+  useEffect(() => {
+    logoScale.value = withSpring(1, { damping: 10 });
+    formOpacity.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.ease) });
+  }, []);
+  
+  // Valider l'email
+  const validateEmail = (text: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!text) {
+      setEmailError('L\'email est requis');
+      return false;
+    } else if (!emailRegex.test(text)) {
+      setEmailError('Format d\'email invalide');
+      return false;
+    } else {
+      setEmailError('');
+      return true;
+    }
+  };
+  
+  // Valider le mot de passe
+  const validatePassword = (text: string) => {
+    if (!text) {
+      setPasswordError('Le mot de passe est requis');
+      return false;
+    } else if (text.length < 6) {
+      setPasswordError('Le mot de passe doit contenir au moins 6 caractères');
+      return false;
+    } else {
+      setPasswordError('');
+      return true;
+    }
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+    // Masquer le clavier
+    Keyboard.dismiss();
+    
+    // Valider les entrées
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    
+    if (!isEmailValid || !isPasswordValid) {
       return;
     }
 
@@ -36,28 +97,43 @@ const LoginScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
-        <ScrollView contentContainerStyle={styles.scrollView}>
-          <View style={styles.logoContainer}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
             <Text style={styles.title}>TANY</Text>
             <Text style={styles.subtitle}>Espace Bénévole</Text>
-          </View>
+          </Animated.View>
 
-          <View style={styles.formContainer}>
+          <Animated.View style={[styles.formContainer, formAnimatedStyle]}>
             <TextInput
               label="Email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                validateEmail(text);
+              }}
               mode="outlined"
               keyboardType="email-address"
               autoCapitalize="none"
               style={styles.input}
               left={<TextInput.Icon icon="email" />}
+              error={!!emailError}
             />
+            {!!emailError && (
+              <HelperText type="error" visible={!!emailError}>
+                {emailError}
+              </HelperText>
+            )}
 
             <TextInput
               label="Mot de passe"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                validatePassword(text);
+              }}
               mode="outlined"
               secureTextEntry={secureTextEntry}
               style={styles.input}
@@ -68,21 +144,24 @@ const LoginScreen = () => {
                   onPress={() => setSecureTextEntry(!secureTextEntry)}
                 />
               }
+              error={!!passwordError}
             />
+            {!!passwordError && (
+              <HelperText type="error" visible={!!passwordError}>
+                {passwordError}
+              </HelperText>
+            )}
 
             <Button
               mode="contained"
               onPress={handleLogin}
               style={styles.button}
               disabled={isLoading}
+              loading={isLoading}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                'Se connecter'
-              )}
+              Se connecter
             </Button>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

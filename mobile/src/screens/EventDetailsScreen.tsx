@@ -17,7 +17,8 @@ interface Event {
   type: string;
   description: string;
   volunteers: string[];
-  ExpectedVolunteers: number;
+  expectedVolunteers?: number;
+  ExpectedVolunteers?: number; // Pour la rétrocompatibilité
 }
 
 type RouteParams = {
@@ -41,10 +42,22 @@ const EventDetailsScreen = () => {
   }
   
   // Calculer le nombre de places disponibles
-  const totalVolunteersNeeded = event.ExpectedVolunteers || 5;
-  const registeredVolunteers = event.volunteers?.length || 0;
+  // Utiliser expectedVolunteers (minuscule) en priorité, puis ExpectedVolunteers (majuscule) pour la rétrocompatibilité
+  const totalVolunteersNeeded = Number(event.expectedVolunteers) || Number(event.ExpectedVolunteers) || 5;
+  const registeredVolunteers = Array.isArray(event.volunteers) ? event.volunteers.length : 0;
   const availableSpots = Math.max(0, totalVolunteersNeeded - registeredVolunteers);
   const isFullyBooked = availableSpots <= 0;
+  
+  // Log pour déboguer
+  if (event.title === 'Collecte pain') {
+    console.log('EventDetailsScreen - Collecte pain:', {
+      expectedVolunteers: event.expectedVolunteers,
+      ExpectedVolunteers: event.ExpectedVolunteers,
+      totalVolunteersNeeded,
+      registeredVolunteers,
+      availableSpots
+    });
+  }
   
   // Vérifier si l'utilisateur est inscrit
   const isUserRegistered = event.volunteers && event.volunteers.includes(user?._id || '');

@@ -61,18 +61,64 @@ export const getEvents = async (options: EventOptions = {}) => {
         console.log(`${eventsData.length} événements récupérés depuis response.data.events`);
       }
       
-      // Vérifier que chaque événement a un ID
-      const validatedEvents = eventsData.map(event => {
-        if (!event._id) {
-          return {
-            ...event,
-            _id: `generated-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-          };
+      // Ajouter des logs pour déboguer
+      console.log('Premier événement récupéré:', eventsData.length > 0 ? JSON.stringify(eventsData[0], null, 2) : 'Aucun événement');
+      
+      // Vérifier spécifiquement l'événement "Collecte pain"
+      const collectePain = eventsData.find(event => event.title === 'Collecte pain');
+      if (collectePain) {
+        console.log('Événement "Collecte pain" trouvé:', JSON.stringify(collectePain, null, 2));
+      }
+      
+      // Normaliser et valider les événements
+      const normalizedEvents = eventsData.map(event => {
+        // Créer une copie profonde de l'événement pour éviter les références
+        const eventWithId = JSON.parse(JSON.stringify(event));
+        
+        // S'assurer que chaque événement a un ID
+        if (!eventWithId._id) {
+          eventWithId._id = `generated-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         }
-        return event;
+        
+        // Normaliser le nombre de bénévoles attendus
+        // Si expectedVolunteers (minuscule) existe, l'utiliser directement
+        if (eventWithId.expectedVolunteers !== undefined) {
+          // S'assurer que c'est un nombre
+          eventWithId.expectedVolunteers = Number(eventWithId.expectedVolunteers);
+          // Copier également dans ExpectedVolunteers pour la rétrocompatibilité
+          eventWithId.ExpectedVolunteers = eventWithId.expectedVolunteers;
+        } 
+        // Si ExpectedVolunteers (majuscule) existe mais pas expectedVolunteers (minuscule)
+        else if (eventWithId.ExpectedVolunteers !== undefined) {
+          // S'assurer que c'est un nombre
+          eventWithId.ExpectedVolunteers = Number(eventWithId.ExpectedVolunteers);
+          // Copier dans expectedVolunteers
+          eventWithId.expectedVolunteers = eventWithId.ExpectedVolunteers;
+        } 
+        // Si aucun des deux n'existe, définir une valeur par défaut
+        else {
+          eventWithId.expectedVolunteers = 5; // Valeur par défaut
+          eventWithId.ExpectedVolunteers = 5; // Valeur par défaut
+        }
+        
+        // S'assurer que volunteers est toujours un tableau
+        if (!Array.isArray(eventWithId.volunteers)) {
+          eventWithId.volunteers = [];
+        }
+        
+        // Log pour déboguer
+        if (eventWithId.title === 'Collecte pain') {
+          console.log('Événement "Collecte pain" normalisé:', JSON.stringify({
+            title: eventWithId.title,
+            expectedVolunteers: eventWithId.expectedVolunteers,
+            ExpectedVolunteers: eventWithId.ExpectedVolunteers
+          }, null, 2));
+        }
+        
+        return eventWithId;
       });
       
-      return validatedEvents;
+      return normalizedEvents;
     }
     
     // Si aucune donnée valide n'a été trouvée, retourner un tableau vide

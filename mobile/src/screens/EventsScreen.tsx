@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Alert, TouchableOpacity } from 'react-native';
-import { Text, Card, Button, ActivityIndicator, Chip, Divider } from 'react-native-paper';
+import { Text, Button, ActivityIndicator, Divider } from 'react-native-paper';
 import { Calendar, DateData } from 'react-native-calendars';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../context/AuthContext';
-import { getEvents } from '../services/eventService';
+import { useEvents } from '../hooks/useEvents';
+import EventCard from '../components/EventCard';
 import { colors } from '../constants/theme';
 
 interface Event {
@@ -18,7 +19,8 @@ interface Event {
   type: string;
   description: string;
   volunteers: string[];
-  ExpectedVolunteers: number;
+  expectedVolunteers?: number;
+  ExpectedVolunteers?: number; // Pour la rétrocompatibilité
 }
 
 interface MarkedDates {
@@ -31,115 +33,71 @@ interface MarkedDates {
 }
 
 const EventsScreen = () => {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
-  const [markedDates, setMarkedDates] = useState<MarkedDates>({});
+  const [refreshing, setRefreshing] = useState(false);
   
   const { user } = useAuth();
   const navigation = useNavigation();
-
-  // Fonction pour charger les événements
-  const loadEvents = useCallback(async () => {
-    try {
-      setLoading(true);
-      const eventsData = await getEvents();
-      
-      if (Array.isArray(eventsData)) {
-        setEvents(eventsData);
-        
-        // Filtrer les événements à venir
-        const now = new Date();
-        const upcoming = eventsData
-          .filter(event => new Date(event.start) > now)
-          .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-        
-        setUpcomingEvents(upcoming);
-        
-        // Marquer les dates dans le calendrier
-        const marked: MarkedDates = {};
-        eventsData.forEach(event => {
-          const date = new Date(event.start).toISOString().split('T')[0];
-          
-          // Déterminer la couleur en fonction du type d'événement
-          const dotColor = event.type?.toLowerCase().includes('marché') ? colors.secondary : colors.primary;
-          
-          marked[date] = {
-            marked: true,
-            dotColor,
-            ...(date === selectedDate ? { selected: true, selectedColor: '#E0E0E0' } : {})
-          };
-        });
-        
-        setMarkedDates(marked);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des événements:', error);
-      Alert.alert('Erreur', 'Impossible de charger les événements');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+  
+  // Utiliser le hook personnalisé pour les événements
+  const { 
+    events, 
+    isLoading, 
+    isError, 
+    refetch, 
+    filterEventsByDate, 
+    getUpcomingEvents 
+  } = useEvents();
+  
+  // Utiliser useMemo pour calculer les événements à venir
+  const upcomingEvents = useMemo(() => {
+    if (selectedDate) {
+      return filterEventsByDate(selectedDate);
     }
-  }, [selectedDate]);
-
-  // Charger les événements au montage du composant
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
-
+    return getUpcomingEvents();
+  }, [events, selectedDate, filterEventsByDate, getUpcomingEvents]);
+  
+  // Calculer les dates marquées pour le calendrier
+  const markedDates = useMemo(() => {
+    const marked: MarkedDates = {};
+    
+    if (events && Array.isArray(events)) {
+      events.forEach(event => {
+        const date = new Date(event.start).toISOString().split('T')[0];
+        
+        // Déterminer la couleur en fonction du type d'événement
+        const dotColor = event.type?.toLowerCase().includes('marché') ? colors.secondary : colors.primary;
+        
+        marked[date] = {
+          marked: true,
+          dotColor,
+          ...(date === selectedDate ? { selected: true, selectedColor: '#E0E0E0' } : {})
+        };
+      });
+    }
+    
+    return marked;
+  }, [events, selectedDate]);
+  
   // Fonction pour rafraîchir les événements
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadEvents();
-  }, [loadEvents]);
+    refetch().finally(() => setRefreshing(false));
+  }, [refetch]);
 
   // Fonction pour gérer la sélection d'une date
   const handleDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
     
-    // Mettre à jour les dates marquées pour refléter la sélection
-    const newMarkedDates = { ...markedDates };
-    
-    // Réinitialiser toutes les sélections précédentes
-    Object.keys(newMarkedDates).forEach(date => {
-      if (newMarkedDates[date].selected) {
-        newMarkedDates[date] = {
-          ...newMarkedDates[date],
-          selected: false,
-        };
-      }
-    });
-    
-    // Marquer la nouvelle date sélectionnée
-    newMarkedDates[day.dateString] = {
-      ...(newMarkedDates[day.dateString] || { marked: false, dotColor: colors.primary }),
-      selected: true,
-      selectedColor: '#E0E0E0',
-    };
-    
-    setMarkedDates(newMarkedDates);
-    
     // Filtrer les événements pour cette date
-    const dateEvents = events.filter(event => {
-      const eventDate = new Date(event.start).toISOString().split('T')[0];
-      return eventDate === day.dateString;
-    });
+    const dateEvents = filterEventsByDate(day.dateString);
     
-    if (dateEvents.length > 0) {
-      setUpcomingEvents(dateEvents);
-    } else {
+    if (dateEvents.length === 0) {
       // Si aucun événement pour cette date, afficher un message
       Alert.alert('Information', 'Aucun événement prévu pour cette date');
       
-      // Revenir à la liste des événements à venir
-      const now = new Date();
-      const upcoming = events
-        .filter(event => new Date(event.start) > now)
-        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-      
-      setUpcomingEvents(upcoming);
+      // Réinitialiser la sélection pour revenir aux événements à venir
+      setSelectedDate('');
     }
   };
 
@@ -180,59 +138,14 @@ const EventsScreen = () => {
 
   // Rendu d'un événement dans la liste
   const renderEventItem = ({ item }: { item: Event }) => {
-    const eventColor = getEventColor(item.type);
     const registered = isUserRegistered(item);
     
-    // Calculer le nombre de places disponibles
-    const totalVolunteersNeeded = item.ExpectedVolunteers || 5;
-    const registeredVolunteers = item.volunteers?.length || 0;
-    const availableSpots = Math.max(0, totalVolunteersNeeded - registeredVolunteers);
-    const isFullyBooked = availableSpots <= 0;
-
     return (
-      <Card style={styles.eventCard} onPress={() => navigateToEventDetails(item)}>
-        <Card.Content>
-          <View style={styles.eventHeader}>
-            <View style={[styles.eventTypeIndicator, { backgroundColor: eventColor }]} />
-            <Text style={styles.eventTitle}>{item.title}</Text>
-            {registered && (
-              <Chip style={styles.registeredChip} textStyle={{ color: colors.primary }}>
-                Inscrit
-              </Chip>
-            )}
-          </View>
-          
-          <Text style={styles.eventDate}>{formatDate(item.start)}</Text>
-          
-          <View style={styles.eventDetails}>
-            <View style={styles.eventDetailRow}>
-              <Ionicons name="location-outline" size={16} color="#666" />
-              <Text style={styles.eventDetailText}>{item.location || 'Lieu non précisé'}</Text>
-            </View>
-            
-            <View style={styles.eventDetailRow}>
-              <Ionicons name="people-outline" size={16} color="#666" />
-              <Text style={styles.eventDetailText}>
-                {isFullyBooked ? (
-                  <Text style={{ color: 'red' }}>Complet</Text>
-                ) : (
-                  `${availableSpots} places disponibles sur ${totalVolunteersNeeded}`
-                )}
-              </Text>
-            </View>
-          </View>
-        </Card.Content>
-        
-        <Card.Actions style={styles.cardActions}>
-          <Button 
-            mode="contained" 
-            onPress={() => navigateToEventDetails(item)}
-            style={{ backgroundColor: eventColor }}
-          >
-            Voir détails
-          </Button>
-        </Card.Actions>
-      </Card>
+      <EventCard 
+        event={item}
+        isUserRegistered={registered}
+        onPress={() => navigateToEventDetails(item)}
+      />
     );
   };
 
@@ -264,9 +177,16 @@ const EventsScreen = () => {
       
       <Text style={styles.sectionTitle}>Événements à venir</Text>
       
-      {loading ? (
+      {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : isError ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Erreur lors du chargement des événements</Text>
+          <Button mode="contained" onPress={onRefresh} style={{ marginTop: 10 }}>
+            Réessayer
+          </Button>
         </View>
       ) : (
         <FlatList
@@ -279,9 +199,16 @@ const EventsScreen = () => {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Aucun événement à venir</Text>
+              <Text style={styles.emptyText}>
+                {selectedDate ? 'Aucun événement pour cette date' : 'Aucun événement à venir'}
+              </Text>
             </View>
           }
+          // Optimisations de performance
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
     </View>
@@ -327,53 +254,6 @@ const styles = StyleSheet.create({
   eventsList: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-  },
-  eventCard: {
-    marginBottom: 12,
-    elevation: 2,
-  },
-  eventHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  eventTypeIndicator: {
-    width: 4,
-    height: 20,
-    borderRadius: 2,
-    marginRight: 8,
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  registeredChip: {
-    backgroundColor: '#e6f7ef',
-    height: 24,
-  },
-  eventDate: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  eventDetails: {
-    marginTop: 8,
-  },
-  eventDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  eventDetailText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 6,
-  },
-  cardActions: {
-    justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
   },
   emptyContainer: {
     padding: 20,
