@@ -47,8 +47,8 @@ const AdminCollections = () => {
     }
   }, []);
 
-  // Utiliser SWR pour récupérer les événements
-  const { data: eventsData, error, isLoading } = useEvents();
+  // Utiliser SWR pour récupérer les événements avec une configuration améliorée
+  const { data: eventsData, error, isLoading, mutate: mutateEvents } = useEvents();
   const events = eventsData?.data || [];
 
   // Fonction pour ouvrir le modal d'ajout d'événement
@@ -103,26 +103,55 @@ const AdminCollections = () => {
   // Fonction pour gérer la soumission du formulaire
   const handleSubmit = async (formData) => {
     try {
+      let updatedEvent;
+      
       if (selectedEvent) {
         // Mise à jour d'un événement existant
-        await updateEvent(selectedEvent.id, formData);
+        updatedEvent = await updateEvent(selectedEvent.id, formData);
+        
+        // Mise à jour optimiste pour l'édition
+        const updatedEvents = events.map(event => 
+          event._id === selectedEvent.id ? { ...event, ...formData, _id: event._id } : event
+        );
+        
+        // Mettre à jour le cache SWR avec les données mises à jour
+        mutateEvents({ data: updatedEvents, success: true }, false);
+        
         // Afficher un toast de succès pour la mise à jour
         showSuccessToast(`L'événement "${formData.title}" a été mis à jour avec succès`);
       } else {
         // Ajout d'un nouvel événement
-        await createEvent(formData);
+        updatedEvent = await createEvent(formData);
+        
+        // Créer un nouvel événement temporaire avec un ID généré
+        const newEvent = {
+          ...formData,
+          _id: updatedEvent.data._id || `temp-${Date.now()}`,
+          // Ajouter d'autres propriétés par défaut si nécessaire
+        };
+        
+        // Mise à jour optimiste pour l'ajout
+        const updatedEvents = [...events, newEvent];
+        
+        // Mettre à jour le cache SWR avec les données mises à jour
+        mutateEvents({ data: updatedEvents, success: true }, false);
+        
         // Afficher un toast de succès pour la création
         showSuccessToast(`L'événement "${formData.title}" a été créé avec succès`);
       }
       
-      // Rafraîchir les données
-      mutate('/api/events');
-      
       // Fermer le modal
       setIsModalOpen(false);
+      
+      // Forcer un rafraîchissement complet des données après un court délai
+      setTimeout(() => {
+        mutateEvents();
+      }, 300);
     } catch (error) {
       console.error('Erreur lors de la sauvegarde de l\'événement:', error);
-      // Remplacer l'alerte par un toast d'erreur
+      // Forcer un rafraîchissement des données en cas d'erreur
+      mutateEvents();
+      // Afficher un toast d'erreur
       showErrorToast('Une erreur est survenue lors de la sauvegarde de l\'événement.');
     }
   };
@@ -135,17 +164,43 @@ const AdminCollections = () => {
         const eventToDelete = events.find(event => event._id === eventId);
         const eventTitle = eventToDelete ? eventToDelete.title : 'Événement';
         
-        await deleteEvent(eventId);
+        // Sauvegarder les données originales pour pouvoir les restaurer en cas d'erreur
+        const originalEvents = [...events];
         
-        // Rafraîchir les données
-        mutate('/api/events');
+        // Mise à jour optimiste - mettre à jour les données localement avant la requête API
+        const updatedEvents = events.filter(event => event._id !== eventId);
         
-        // Afficher un toast de succès pour la suppression
-        showSuccessToast(`L'événement "${eventTitle}" a été supprimé avec succès`);
+        // Mettre à jour le cache SWR avec les données filtrées (mise à jour optimiste)
+        mutateEvents({ data: updatedEvents, success: true }, false);
+        
+        try {
+          // Effectuer la suppression réelle
+          await deleteEvent(eventId);
+          
+          // Forcer un rafraîchissement complet des données après la suppression
+          // Utiliser revalidate: true pour forcer SWR à récupérer les données depuis le serveur
+          await mutateEvents(undefined, { revalidate: true });
+          
+          // Afficher un toast de succès pour la suppression
+          showSuccessToast(`L'événement "${eventTitle}" a été supprimé avec succès`);
+        } catch (apiError) {
+          console.error('Erreur lors de la suppression de l\'événement:', apiError);
+          
+          // En cas d'erreur, restaurer les données originales
+          mutateEvents({ data: originalEvents, success: true }, false);
+          
+          // Puis forcer une revalidation pour s'assurer que les données sont à jour
+          mutateEvents();
+          
+          // Afficher un toast d'erreur
+          showErrorToast('Une erreur est survenue lors de la suppression de l\'événement.');
+        }
       } catch (error) {
-        console.error('Erreur lors de la suppression de l\'événement:', error);
-        // Remplacer l'alerte par un toast d'erreur
-        showErrorToast('Une erreur est survenue lors de la suppression de l\'événement.');
+        console.error('Erreur inattendue:', error);
+        // Forcer un rafraîchissement des données en cas d'erreur
+        mutate('/api/events');
+        // Afficher un toast d'erreur
+        showErrorToast('Une erreur inattendue est survenue.');
       }
     }
   };
@@ -160,7 +215,7 @@ const AdminCollections = () => {
   // Fonction pour gérer l'enregistrement des affectations
   const handleAssignmentSave = (assignments) => {
     // Rafraîchir les données après l'enregistrement des affectations
-    mutate('/api/events');
+    mutateEvents();
   };
 
   // Fonction pour formater les dates

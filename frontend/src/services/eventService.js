@@ -131,10 +131,33 @@ export const updateEvent = async (id, eventData) => {
  */
 export const deleteEvent = async (id) => {
   try {
+    console.log(`Suppression de l'événement avec l'ID: ${id}`);
     const response = await api.delete(`/api/events/${id}`);
+    console.log(`Réponse de suppression reçue:`, response.data);
+    
+    // Vérifier que la suppression a bien fonctionné
+    if (!response.data || !response.data.success) {
+      console.error(`La suppression a échoué pour l'événement ${id}:`, response.data);
+      throw new Error(response.data?.message || 'Échec de la suppression de l\'événement');
+    }
+    
     return response.data;
   } catch (error) {
     console.error(`Erreur lors de la suppression de l'événement ${id}:`, error);
+    // Ajouter plus de détails sur l'erreur pour faciliter le débogage
+    if (error.response) {
+      // La requête a été faite et le serveur a répondu avec un code d'état
+      // qui n'est pas dans la plage 2xx
+      console.error('Données de réponse d\'erreur:', error.response.data);
+      console.error('Statut d\'erreur:', error.response.status);
+      console.error('En-têtes d\'erreur:', error.response.headers);
+    } else if (error.request) {
+      // La requête a été faite mais aucune réponse n'a été reçue
+      console.error('Requête sans réponse:', error.request);
+    } else {
+      // Une erreur s'est produite lors de la configuration de la requête
+      console.error('Erreur de configuration:', error.message);
+    }
     throw error;
   }
 };

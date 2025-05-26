@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -22,6 +22,17 @@ const EventsTable = ({
 
   // Appliquer les filtres aux événements
   useEffect(() => {
+    console.log("EventsTable: Mise à jour des événements ou des filtres détectée");
+    
+    // Vérifier que events est bien un tableau
+    if (!Array.isArray(events)) {
+      console.warn("EventsTable: events n'est pas un tableau", events);
+      setFilteredEvents([]);
+      return;
+    }
+    
+    console.log(`EventsTable: Filtrage de ${events.length} événements`);
+    
     let result = [...events];
     
     // Filtre par titre
@@ -62,9 +73,20 @@ const EventsTable = ({
       );
     }
     
+    console.log(`EventsTable: ${result.length} événements après filtrage`);
     setFilteredEvents(result);
-    setCurrentPage(1); // Réinitialiser à la première page après filtrage
+    
+    // Réinitialiser à la première page après filtrage
+    // mais seulement si les filtres ont changé, pas si les événements ont changé
+    const filtersChanged = JSON.stringify(filters) !== JSON.stringify(prevFilters.current);
+    if (filtersChanged) {
+      setCurrentPage(1);
+      prevFilters.current = {...filters};
+    }
   }, [events, filters]);
+  
+  // Référence pour suivre les changements de filtres
+  const prevFilters = React.useRef({...filters});
 
   // Calculer les événements à afficher pour la page actuelle
   const indexOfLastEvent = currentPage * itemsPerPage;

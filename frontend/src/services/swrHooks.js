@@ -76,7 +76,14 @@ export const useEvents = (page = 1, limit = 10, search = '', status = null) => {
     url += `&status=${status}`;
   }
   
-  const { data, error, isLoading, mutate } = useSWR(url, fetcher);
+  const { data, error, isLoading, mutate } = useSWR(url, fetcher, {
+    // Ajouter des options de configuration pour améliorer la réactivité
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    refreshWhenHidden: false,
+    dedupingInterval: 1000, // Réduire l'intervalle de dédoublonnage à 1 seconde
+    errorRetryCount: 3
+  });
   
   return {
     data,
