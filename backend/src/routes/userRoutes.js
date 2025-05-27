@@ -32,6 +32,9 @@ router.post('/refresh-token', userController.refreshToken);
 // Route pour se déconnecter
 router.post('/logout', userController.logoutUser);
 
+// Route pour vérifier l'authentification
+router.get('/check-auth', protect, userController.checkAuth);
+
 // Routes protégées
 router.route('/profile')
   .get(protect, userController.getUserProfile)

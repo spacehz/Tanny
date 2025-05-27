@@ -15,18 +15,54 @@ export const AuthProvider = ({ children }) => {
     // Fonction pour vérifier l'état d'authentification
     const checkAuthStatus = async () => {
       try {
+        // Nettoyer d'abord toutes les données d'authentification potentiellement invalides
+        authService.cleanupAuthData();
+        
         // Vérifier si l'utilisateur est déjà connecté via localStorage
         const userInfo = localStorage.getItem('userInfo');
         if (userInfo) {
-          setUser(JSON.parse(userInfo));
-          
-          // Ne pas vérifier le profil ici pour éviter une boucle infinie
-          // Le token sera vérifié lors des requêtes API normales
+          try {
+            const userData = JSON.parse(userInfo);
+            
+            // Vérifier si l'utilisateur a un ID et un rôle valides
+            if (userData && userData._id && userData.role) {
+              console.log('Données utilisateur trouvées dans localStorage, vérification de la validité de la session');
+              
+              // Vérifier avec le backend si la session est toujours valide
+              try {
+                const isValid = await authService.validateSession();
+                if (isValid) {
+                  console.log('Session validée avec succès');
+                  setUser(userData);
+                } else {
+                  console.log('Session invalide, déconnexion de l\'utilisateur');
+                  authService.clearAuthData();
+                  setUser(null);
+                }
+              } catch (sessionError) {
+                console.error('Erreur lors de la validation de la session:', sessionError);
+                // En cas d'erreur de connexion au serveur, on garde l'utilisateur connecté
+                // mais on réessaiera plus tard
+                setUser(userData);
+              }
+            } else {
+              console.log('Données utilisateur invalides dans localStorage, suppression');
+              authService.clearAuthData();
+              setUser(null);
+            }
+          } catch (parseError) {
+            console.error('Erreur lors du parsing des données utilisateur:', parseError);
+            authService.clearAuthData();
+            setUser(null);
+          }
+        } else {
+          console.log('Aucune donnée utilisateur trouvée dans localStorage');
+          setUser(null);
         }
       } catch (error) {
         console.error('Erreur lors de la vérification de l\'authentification:', error);
+        authService.clearAuthData();
         setUser(null);
-        localStorage.removeItem('userInfo');
       } finally {
         setLoading(false);
       }
@@ -34,23 +70,32 @@ export const AuthProvider = ({ children }) => {
     
     checkAuthStatus();
     
-    // Configurer un intervalle pour rafraîchir le token périodiquement
-    // Utiliser un intervalle plus long pour éviter trop de requêtes
-    const refreshInterval = setInterval(async () => {
+    // Configurer un intervalle pour vérifier périodiquement la validité de la session
+    const sessionCheckInterval = setInterval(async () => {
       const userInfo = localStorage.getItem('userInfo');
-      if (userInfo) {
+      if (userInfo && user) {
         try {
-          await authService.refreshToken();
+          console.log('Vérification périodique de la validité de la session');
+          const isValid = await authService.validateSession();
+          if (!isValid) {
+            console.log('Session devenue invalide, déconnexion de l\'utilisateur');
+            authService.clearAuthData();
+            setUser(null);
+            // Rediriger vers la page d'accueil si nécessaire
+            if (router.pathname !== '/') {
+              router.push('/');
+            }
+          }
         } catch (error) {
-          console.error('Erreur lors du rafraîchissement périodique du token:', error);
-          // Ne pas déconnecter l'utilisateur ici, laisser les intercepteurs gérer cela
+          console.error('Erreur lors de la vérification périodique de la session:', error);
+          // Ne pas déconnecter l'utilisateur en cas d'erreur réseau
         }
       }
-    }, 60 * 60 * 1000); // Rafraîchir toutes les 60 minutes au lieu de 20
+    }, 15 * 60 * 1000); // Vérifier toutes les 15 minutes
     
     // Nettoyer l'intervalle lors du démontage du composant
-    return () => clearInterval(refreshInterval);
-  }, []); // Supprimer la dépendance à user pour éviter les boucles
+    return () => clearInterval(sessionCheckInterval);
+  }, [router]); // Dépendance au router pour les redirections
 
   // Fonction pour s'inscrire
   const register = async (userData) => {
@@ -139,12 +184,14 @@ export const AuthProvider = ({ children }) => {
     try {
       await authService.logout();
       setUser(null);
+      localStorage.removeItem('userInfo');
       // Redirection vers la page d'accueil après déconnexion
       router.push('/');
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
       // Déconnecter quand même l'utilisateur localement en cas d'erreur
       setUser(null);
+      localStorage.removeItem('userInfo');
       // Redirection vers la page d'accueil même en cas d'erreur
       router.push('/');
     }

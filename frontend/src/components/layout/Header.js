@@ -13,6 +13,15 @@ const Header = () => {
   // Debug log to check if user and isAuthenticated are correctly set
   console.log('Header - User:', user);
   console.log('Header - isAuthenticated:', isAuthenticated);
+  
+  // Vérification supplémentaire pour détecter les incohérences
+  if (user && !user._id) {
+    console.warn('Header - Détection d\'un utilisateur sans ID, possible incohérence');
+  }
+  
+  if (isAuthenticated && !user) {
+    console.warn('Header - Incohérence détectée: isAuthenticated est true mais user est null');
+  }
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -36,6 +45,9 @@ const Header = () => {
     // Redirection vers la page d'accueil après déconnexion
     router.push('/');
   };
+  
+  // Nous supprimons la fonction handleForceLogout car le nettoyage
+  // des données d'authentification doit être géré automatiquement
 
   return (
     <header className="bg-primary-600 text-white fixed top-0 left-0 right-0 z-20 h-16 shadow-header">

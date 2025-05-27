@@ -149,9 +149,15 @@ api.interceptors.response.use(
       // Incrémenter le compteur de défaillances consécutives
       consecutiveFailures++;
       
-      // Déconnecter l'utilisateur après plusieurs tentatives
+      // Nettoyer les données d'authentification après plusieurs tentatives
       if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        // Nettoyer toutes les données d'authentification
         localStorage.removeItem('userInfo');
+        localStorage.removeItem('lastProfileCheck');
+        localStorage.removeItem('lastTokenRefresh');
+        localStorage.removeItem('lastSessionValidation');
+        
+        console.log('Nettoyage complet des données d\'authentification suite à des erreurs 401 répétées');
         
         // Rediriger vers la page de connexion
         if (typeof window !== 'undefined' && window.location.pathname !== '/login') {

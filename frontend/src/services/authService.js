@@ -252,3 +252,96 @@ export const getCsrfToken = async () => {
     throw error;
   }
 };
+
+// Fonction pour valider la session utilisateur
+export const validateSession = async () => {
+  try {
+    // Vérifier si nous avons déjà validé la session récemment
+    const lastValidation = localStorage.getItem('lastSessionValidation');
+    const now = Date.now();
+    
+    if (lastValidation && now - parseInt(lastValidation) < 300000) { // 5 minutes
+      // Si moins de 5 minutes se sont écoulées depuis la dernière validation, considérer la session comme valide
+      console.log('Session déjà validée récemment');
+      return true;
+    }
+    
+    // Essayer d'accéder à une route protégée pour vérifier si la session est valide
+    const response = await api.get('/api/users/check-auth', {
+      withCredentials: true,
+      // Ajouter un timeout court pour éviter de bloquer trop longtemps
+      timeout: 5000
+    });
+    
+    // Mettre à jour le timestamp de la dernière validation
+    localStorage.setItem('lastSessionValidation', now.toString());
+    
+    return response.data.isAuthenticated === true;
+  } catch (error) {
+    console.error('Erreur lors de la validation de la session:', error);
+    // Si l'erreur est 401 ou 403, la session n'est pas valide
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      console.log('Session invalide (401/403)');
+      return false;
+    }
+    
+    // En cas d'erreur réseau ou autre, considérer que la session pourrait être valide
+    // pour éviter de déconnecter l'utilisateur inutilement
+    console.log('Erreur réseau lors de la validation de session, considérant comme potentiellement valide');
+    return true;
+  }
+};
+
+// Fonction pour effacer toutes les données d'authentification
+export const clearAuthData = () => {
+  localStorage.removeItem('userInfo');
+  localStorage.removeItem('lastProfileCheck');
+  localStorage.removeItem('lastTokenRefresh');
+  localStorage.removeItem('lastSessionValidation');
+  console.log('Toutes les données d\'authentification ont été effacées');
+};
+
+// Fonction pour nettoyer les données d'authentification invalides
+export const cleanupAuthData = () => {
+  try {
+    // Vérifier si des données utilisateur existent dans le localStorage
+    const userInfoStr = localStorage.getItem('userInfo');
+    
+    if (userInfoStr) {
+      try {
+        // Essayer de parser les données JSON
+        const userInfo = JSON.parse(userInfoStr);
+        
+        // Vérifier si les données utilisateur sont valides
+        if (!userInfo || !userInfo._id || !userInfo.role) {
+          console.log('Données utilisateur invalides dans localStorage, suppression');
+          localStorage.removeItem('userInfo');
+        }
+      } catch (parseError) {
+        // Si le parsing échoue, les données sont corrompues
+        console.error('Erreur lors du parsing des données utilisateur:', parseError);
+        localStorage.removeItem('userInfo');
+      }
+    }
+    
+    // Nettoyer également d'autres données d'authentification potentiellement invalides
+    const lastProfileCheck = localStorage.getItem('lastProfileCheck');
+    if (lastProfileCheck && isNaN(parseInt(lastProfileCheck))) {
+      localStorage.removeItem('lastProfileCheck');
+    }
+    
+    const lastTokenRefresh = localStorage.getItem('lastTokenRefresh');
+    if (lastTokenRefresh && isNaN(parseInt(lastTokenRefresh))) {
+      localStorage.removeItem('lastTokenRefresh');
+    }
+    
+    const lastSessionValidation = localStorage.getItem('lastSessionValidation');
+    if (lastSessionValidation && isNaN(parseInt(lastSessionValidation))) {
+      localStorage.removeItem('lastSessionValidation');
+    }
+    
+    console.log('Nettoyage des données d\'authentification terminé');
+  } catch (error) {
+    console.error('Erreur lors du nettoyage des données d\'authentification:', error);
+  }
+};

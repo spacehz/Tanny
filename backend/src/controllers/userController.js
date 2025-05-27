@@ -686,3 +686,30 @@ exports.logoutUser = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };
+
+// @desc    Vérifier l'authentification de l'utilisateur
+// @route   GET /api/users/check-auth
+// @access  Private
+exports.checkAuth = async (req, res) => {
+  try {
+    // Si cette route est atteinte, cela signifie que le middleware protect a validé le token
+    // et que req.user est défini
+    
+    // Renvoyer les informations de base de l'utilisateur
+    res.json({
+      isAuthenticated: true,
+      user: {
+        _id: req.user._id,
+        name: req.user.name || req.user.businessName,
+        email: req.user.email,
+        role: req.user.role
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la vérification de l\'authentification:', error);
+    res.status(500).json({ 
+      isAuthenticated: false,
+      message: 'Erreur serveur' 
+    });
+  }
+};

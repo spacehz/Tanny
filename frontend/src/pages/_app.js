@@ -5,9 +5,13 @@ import { SWRConfig } from 'swr';
 import { AuthProvider } from '../context/AuthContext';
 import ToastProvider from '../components/ToastProvider';
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
+  
+  // Le nettoyage des données d'authentification est maintenant géré directement 
+  // dans le contexte d'authentification (AuthContext.js)
   
   // Vérifier si la page actuelle est une page bénévole
   const isVolunteerPage = router.pathname.startsWith('/volunteer');
