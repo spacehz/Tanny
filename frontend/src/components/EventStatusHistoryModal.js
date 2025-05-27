@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Modal from './Modal';
@@ -9,55 +9,126 @@ const EventStatusHistoryModal = ({ isOpen, onClose, event }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Référence pour suivre si le composant est monté
+  const isMounted = useRef(true);
+  
+  // Réinitialiser la référence lors du démontage
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+  
+  // Utiliser useCallback pour éviter de recréer la fonction à chaque rendu
+  const fetchStatusHistory = useCallback(async () => {
+    // Vérifier que l'événement est valide
+    if (!event || !event._id) {
+      if (isMounted.current) {
+        setError('Événement invalide ou non spécifié.');
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    // Éviter de refaire une requête si nous sommes déjà en train de charger
+    if (isLoading) return;
+    
+    if (isMounted.current) {
+      setIsLoading(true);
+      setError(null);
+    }
+    
+    try {
+      // Vérifier d'abord si l'historique est déjà disponible dans l'objet event
+      if (event.statusHistory && Array.isArray(event.statusHistory)) {
+        const sortedHistory = [...event.statusHistory].sort((a, b) => {
+          const dateA = new Date(a.changedAt || a.timestamp || a.date || 0);
+          const dateB = new Date(b.changedAt || b.timestamp || b.date || 0);
+          return dateB - dateA; // Ordre décroissant
+        });
+        
+        if (isMounted.current) {
+          setStatusHistory(sortedHistory);
+          setIsLoading(false);
+        }
+        return;
+      }
+      
+      // Sinon, récupérer les données complètes de l'événement avec un timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 secondes de timeout
+      
+      try {
+        const response = await getEventById(event._id);
+        clearTimeout(timeoutId);
+        
+        // Vérifier si le composant est toujours monté
+        if (!isMounted.current) return;
+        
+        let history = [];
+        
+        if (response && response.data && response.data.statusHistory) {
+          // Utiliser l'historique des statuts de l'événement
+          history = response.data.statusHistory;
+        } else {
+          // Si aucun historique n'est disponible
+          history = [{
+            status: event.status || 'incomplet',
+            changedAt: event.updatedAt || new Date(),
+            changedBy: 'Système'
+          }];
+        }
+        
+        // Trier l'historique par date (du plus récent au plus ancien)
+        const sortedHistory = history.sort((a, b) => {
+          const dateA = new Date(a.changedAt || a.timestamp || a.date || 0);
+          const dateB = new Date(b.changedAt || b.timestamp || b.date || 0);
+          return dateB - dateA; // Ordre décroissant
+        });
+        
+        // Vérifier si le composant est toujours monté avant de mettre à jour l'état
+        if (isMounted.current) {
+          setStatusHistory(sortedHistory);
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        // Vérifier si le composant est toujours monté
+        if (!isMounted.current) return;
+        
+        if (fetchError.name === 'AbortError') {
+          console.error('La requête a expiré après 5 secondes');
+          setError('La requête a pris trop de temps. Veuillez réessayer.');
+        } else {
+          throw fetchError;
+        }
+      }
+      
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error('Erreur lors du chargement de l\'historique des statuts:', err);
+      
+      if (isMounted.current) {
+        setError('Impossible de charger l\'historique des statuts. Veuillez réessayer.');
+        setIsLoading(false);
+      }
+    }
+  }, [event, isLoading]);
+
+  // Utiliser useEffect avec les dépendances correctes
   useEffect(() => {
     if (isOpen && event) {
       fetchStatusHistory();
     }
-  }, [isOpen, event]);
-
-  const fetchStatusHistory = async () => {
-    if (!event || !event._id) return;
     
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Récupérer les données complètes de l'événement pour avoir l'historique des statuts
-      const response = await getEventById(event._id);
-      
-      let history = [];
-      
-      if (response && response.data && response.data.statusHistory) {
-        // Utiliser l'historique des statuts de l'événement
-        history = response.data.statusHistory;
-      } else if (event.statusHistory) {
-        // Si l'historique est déjà disponible dans l'objet event
-        history = event.statusHistory;
-      } else {
-        // Si aucun historique n'est disponible
-        history = [{
-          status: event.status || 'incomplet',
-          changedAt: event.updatedAt || new Date(),
-          changedBy: 'Système'
-        }];
-      }
-      
-      // Trier l'historique par date (du plus récent au plus ancien)
-      const sortedHistory = history.sort((a, b) => {
-        const dateA = new Date(a.changedAt || a.timestamp || a.date || 0);
-        const dateB = new Date(b.changedAt || b.timestamp || b.date || 0);
-        return dateB - dateA; // Ordre décroissant
-      });
-      
-      setStatusHistory(sortedHistory);
-      
-      setIsLoading(false);
-    } catch (err) {
-      console.error('Erreur lors du chargement de l\'historique des statuts:', err);
-      setError('Impossible de charger l\'historique des statuts. Veuillez réessayer.');
-      setIsLoading(false);
-    }
-  };
+    // Nettoyer l'état lors de la fermeture du modal
+    return () => {
+      // Ne pas modifier l'état ici pour éviter des effets de bord
+    };
+  }, [isOpen, event, fetchStatusHistory]);
 
   // Formater la date pour l'affichage
   const formatDate = (date) => {
@@ -83,8 +154,27 @@ const EventStatusHistoryModal = ({ isOpen, onClose, event }) => {
     }
   };
 
+  // Fonction sécurisée pour fermer le modal
+  const handleClose = useCallback(() => {
+    // Vérifier si le composant est toujours monté
+    if (isMounted.current) {
+      // Réinitialiser les états avant de fermer
+      setIsLoading(false);
+      setError(null);
+      setStatusHistory([]);
+    }
+    
+    // Restaurer le style d'overflow du body
+    document.body.style.overflow = 'auto';
+    
+    // Appeler la fonction onClose du parent
+    if (typeof onClose === 'function') {
+      onClose();
+    }
+  }, [onClose]);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Historique des statuts - ${event?.title || 'Événement'}`}>
+    <Modal isOpen={isOpen} onClose={handleClose} title={`Historique des statuts - ${event?.title || 'Événement'}`}>
       <div className="p-4">
         {isLoading ? (
           <div className="text-center py-8">
@@ -97,12 +187,20 @@ const EventStatusHistoryModal = ({ isOpen, onClose, event }) => {
         ) : error ? (
           <div className="text-center py-8 text-red-600">
             <p>{error}</p>
-            <button 
-              onClick={fetchStatusHistory}
-              className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
-            >
-              Réessayer
-            </button>
+            <div className="mt-4 flex justify-center space-x-4">
+              <button 
+                onClick={fetchStatusHistory}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
+              >
+                Réessayer
+              </button>
+              <button
+                onClick={handleClose}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -156,7 +254,7 @@ const EventStatusHistoryModal = ({ isOpen, onClose, event }) => {
             )}
             <div className="mt-6 flex justify-end">
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
               >
                 Fermer

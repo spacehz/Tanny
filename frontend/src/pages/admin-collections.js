@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -218,8 +218,19 @@ const AdminCollections = () => {
   // Fonction pour ouvrir le modal d'historique des statuts
   const handleShowEventHistory = (event) => {
     console.log('Ouverture du modal d\'historique des statuts pour l\'événement:', event);
-    setSelectedEventForHistory(event);
-    setIsHistoryModalOpen(true);
+    // S'assurer que l'événement a un ID
+    if (event && event._id) {
+      setSelectedEventForHistory(event);
+      setIsHistoryModalOpen(true);
+    } else {
+      console.error('Impossible d\'ouvrir l\'historique: événement invalide', event);
+      showErrorToast('Impossible d\'afficher l\'historique des statuts pour cet événement.');
+    }
+  };
+  
+  // Fonction simple pour fermer le modal d'historique des statuts
+  const handleCloseHistoryModal = () => {
+    setIsHistoryModalOpen(false);
   };
 
   // Fonction pour gérer l'enregistrement des affectations
@@ -342,8 +353,14 @@ const AdminCollections = () => {
         )}
         
         {/* Tableau d'événements sous le calendrier - Maintenant en dehors du conteneur du calendrier pour utiliser toute la largeur */}
-        {!isLoading && !error && (
-          <div className="bg-white rounded-lg shadow-md p-6 mt-8 hover:shadow-lg transition-shadow w-full">
+        <div className="bg-white rounded-lg shadow-md p-6 mt-8 hover:shadow-lg transition-shadow w-full">
+          {isLoading ? (
+            <div className="text-center py-8">Chargement des événements...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-600">
+              Erreur lors du chargement des événements. Veuillez réessayer.
+            </div>
+          ) : (
             <EventsTable 
               events={events} 
               onEdit={(event) => {
@@ -378,8 +395,8 @@ const AdminCollections = () => {
                 localStorage.setItem('eventsTableItemsPerPage', newItemsPerPage);
               }}
             />
-          </div>
-        )}
+          )}
+        </div>
         
         {/* Modal pour ajouter/modifier un événement */}
         <CollectionModal
@@ -401,7 +418,7 @@ const AdminCollections = () => {
         {/* Modal pour afficher l'historique des statuts */}
         <EventStatusHistoryModal
           isOpen={isHistoryModalOpen}
-          onClose={() => setIsHistoryModalOpen(false)}
+          onClose={handleCloseHistoryModal}
           event={selectedEventForHistory}
         />
       </div>

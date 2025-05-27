@@ -1,7 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
-  if (!isOpen) return null;
+  // Fonction sécurisée pour fermer le modal
+  const handleClose = useCallback(() => {
+    if (typeof onClose === 'function') {
+      // Restaurer le style d'overflow avant de fermer
+      document.body.style.overflow = 'auto';
+      onClose();
+    }
+  }, [onClose]);
 
   // Empêcher le défilement du body quand le modal est ouvert
   useEffect(() => {
@@ -10,14 +17,12 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
     
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-    } else {
-      // Restaurer le style d'overflow quand le modal est fermé
-      document.body.style.overflow = 'auto';
     }
     
+    // Fonction de nettoyage qui sera appelée lors du démontage ou lorsque isOpen change
     return () => {
-      // Restaurer le style d'overflow original lors du démontage du composant
-      document.body.style.overflow = 'auto';
+      // Restaurer le style d'overflow original
+      document.body.style.overflow = originalOverflow || 'auto';
     };
   }, [isOpen]);
 
@@ -25,7 +30,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
@@ -33,11 +38,11 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
       window.addEventListener('keydown', handleEscape);
     }
 
+    // Fonction de nettoyage
     return () => {
-      // S'assurer que l'écouteur d'événement est toujours supprimé
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   // Déterminer la largeur du modal en fonction de la taille
   const getModalWidth = () => {
@@ -60,12 +65,15 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
     e.stopPropagation();
   };
 
+  // Si le modal n'est pas ouvert, ne pas le rendre du tout
+  if (!isOpen) return null;
+  
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto">
       {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm transition-opacity z-[101]" 
-        onClick={onClose}
+        onClick={handleClose}
       ></div>
       
       {/* Contenu du modal */}
@@ -78,7 +86,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
         <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
           {title && <h2 className="text-xl font-bold text-gray-800">{title}</h2>}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
             aria-label="Fermer"
           >
