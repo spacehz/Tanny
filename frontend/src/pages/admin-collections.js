@@ -11,6 +11,7 @@ import { mutate } from 'swr';
 import CollectionModal from '../components/CollectionModal';
 import EventsTable from '../components/EventsTable';
 import EventVolunteerAssignmentModal from '../components/EventVolunteerAssignmentModal';
+import EventStatusHistoryModal from '../components/EventStatusHistoryModal';
 
 import { createEvent, updateEvent, deleteEvent } from '../services/eventService';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
@@ -22,6 +23,8 @@ const AdminCollections = () => {
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedEventForAssignment, setSelectedEventForAssignment] = useState(null);
+  const [selectedEventForHistory, setSelectedEventForHistory] = useState(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(5); // Valeur par défaut
   // Suppression du mode 'detailedTable' car nous avons maintenant un tableau sous le calendrier
   const [formData, setFormData] = useState({
@@ -211,6 +214,13 @@ const AdminCollections = () => {
     setSelectedEventForAssignment(event);
     setIsAssignmentModalOpen(true);
   };
+  
+  // Fonction pour ouvrir le modal d'historique des statuts
+  const handleShowEventHistory = (event) => {
+    console.log('Ouverture du modal d\'historique des statuts pour l\'événement:', event);
+    setSelectedEventForHistory(event);
+    setIsHistoryModalOpen(true);
+  };
 
   // Fonction pour gérer l'enregistrement des affectations
   const handleAssignmentSave = (assignments) => {
@@ -359,6 +369,7 @@ const AdminCollections = () => {
               }}
               onDelete={handleDeleteEvent}
               onShowDetails={handleShowEventDetails}
+              onShowHistory={handleShowEventHistory}
               itemsPerPage={itemsPerPage}
               onItemsPerPageChange={(newItemsPerPage) => {
                 // Mettre à jour l'état local
@@ -385,6 +396,13 @@ const AdminCollections = () => {
           onClose={() => setIsAssignmentModalOpen(false)}
           event={selectedEventForAssignment}
           onAssignmentSave={handleAssignmentSave}
+        />
+        
+        {/* Modal pour afficher l'historique des statuts */}
+        <EventStatusHistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          event={selectedEventForHistory}
         />
       </div>
     </AdminLayout>
